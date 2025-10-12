@@ -1,0 +1,49 @@
+version: 2
+
+project_name: ssh-dashboard
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ssh-dashboard
+    main: ./cmd/ssh_dashboard
+    binary: ssh-dashboard
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}
+      {{- if eq .Os "windows" }}.exe{{ end }}
+    formats: [binary]
+
+checksum:
+  name_template: 'checksums.txt'
+
+release:
+  github:
+    owner: alpindale
+    name: ssh-dashboard
+  draft: false
+  prerelease: auto
+  name_template: "Release {{ .Version }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'

@@ -11,6 +11,9 @@ test_*
 *.out
 vendor/
 
+# GoReleaser
+dist/
+
 # IDE
 .vscode/
 .idea/

@@ -1,4 +1,4 @@
-.PHONY: build clean install test run
+.PHONY: build clean install test run snapshot
 
 BINARY_NAME=ssh-dashboard
 INSTALL_PATH=$(HOME)/.local/bin
@@ -13,6 +13,10 @@ build-all:
 	@GOOS=darwin GOARCH=amd64 go build -o ${BINARY_NAME}-darwin-amd64 ./cmd/ssh_dashboard
 	@GOOS=darwin GOARCH=arm64 go build -o ${BINARY_NAME}-darwin-arm64 ./cmd/ssh_dashboard
 	@GOOS=windows GOARCH=amd64 go build -o ${BINARY_NAME}-windows-amd64.exe ./cmd/ssh_dashboard
+
+snapshot:
+	@echo "Building snapshot with goreleaser..."
+	@goreleaser release --snapshot --clean
 
 clean:
 	@echo "Cleaning..."
@@ -50,6 +54,7 @@ help:
 	@echo "Available targets:"
 	@echo "  build      - Build the binary"
 	@echo "  build-all  - Build for multiple platforms"
+	@echo "  snapshot   - Build snapshot with goreleaser"
 	@echo "  clean      - Remove built binaries"
 	@echo "  install    - Install to ${INSTALL_PATH}"
 	@echo "  uninstall  - Remove from ${INSTALL_PATH}"

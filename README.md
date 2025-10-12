@@ -147,14 +147,22 @@ make run
 
 ### Build for Multiple Platforms
 
+The project uses [GoReleaser](https://goreleaser.com/) for multi-platform builds and releases.
+
+**Test the release locally:**
+```bash
+goreleaser release --snapshot --clean
+```
+
+**Build all platforms with Make:**
 ```bash
 make build-all
 ```
 
 This creates binaries for:
-- Linux (amd64)
-- macOS (amd64 and arm64)
-- Windows (amd64) [not tested]
+- Linux (amd64, arm64)
+- macOS (amd64, arm64)
+- Windows (amd64, arm64)
 
 ### Clean
 
