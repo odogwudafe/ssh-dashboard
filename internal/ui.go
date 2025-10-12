@@ -188,8 +188,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				if len(m.selectedHosts) > 0 {
-					m.screen = ScreenConnecting
-					return m, m.connectToHosts()
+					hasConnections := len(m.clients) > 0
+
+					if hasConnections {
+						m.screen = ScreenDashboard
+						cmd := m.connectNewHosts()
+						if cmd != nil {
+							return m, cmd
+						}
+					} else {
+						m.screen = ScreenConnecting
+						return m, m.connectToHosts()
+					}
 				}
 			}
 		case "n":
@@ -199,6 +209,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.clients[nextHost.Name] == nil {
 					return m, m.connectToHost(nextHost)
 				}
+			}
+		case "c":
+			if m.screen == ScreenDashboard {
+				m.screen = ScreenHostList
+				m.updateListSelection()
 			}
 		}
 
@@ -305,6 +320,24 @@ func (m Model) connectToHost(host SSHHost) tea.Cmd {
 	}
 }
 
+func (m Model) connectNewHosts() tea.Cmd {
+	var cmds []tea.Cmd
+	for _, host := range m.selectedHosts {
+		// Only connect if not already connected
+		if m.clients[host.Name] == nil {
+			h := host
+			cmds = append(cmds, func() tea.Msg {
+				client, err := NewSSHClient(h)
+				return ConnectedMsg{hostName: h.Name, client: client, err: err}
+			})
+		}
+	}
+	if len(cmds) > 0 {
+		return tea.Batch(cmds...)
+	}
+	return nil
+}
+
 func (m Model) gatherAllSysInfo() tea.Cmd {
 	var cmds []tea.Cmd
 	for _, host := range m.selectedHosts {
@@ -393,9 +426,9 @@ func renderDashboard(hostName string, info *SystemInfo, updateInterval time.Dura
 	title := fmt.Sprintf("  System Dashboard - %s  ", hostName)
 	navHint := ""
 	if multiHost {
-		navHint = " | Press 'n' for next host"
+		navHint = " | 'n' next"
 	}
-	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %.0fs%s | Press 'q' to quit",
+	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %.0fs%s | 'c' add hosts | 'q' quit",
 		lastUpdate.Format("15:04:05"), updateInterval.Seconds(), navHint)
 
 	b.WriteString(titleStyle.Render(title))

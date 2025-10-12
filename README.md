@@ -44,6 +44,13 @@ The tool will:
 3. Connect and display a live dashboard
 4. Update stats every 5 seconds (configurable)
 
+**Multi-host workflow:**
+- Start by selecting one or more hosts (use `Space` to toggle selection)
+- Press `Enter` to connect and view the dashboard
+- While in the dashboard, press `c` to return to host selection to add/remove hosts
+- Press `n` to cycle through connected hosts (like tmux sessions)
+- All connections remain active - no need to reconnect!
+
 ### Configuration
 
 **Update Interval:**
@@ -63,6 +70,7 @@ ssh-dashboard
 - `Space` - Select/deselect hosts (in host selection screen)
 - `Enter` - Connect to selected host(s)
 - `n` - Switch to next host (when multiple hosts selected)
+- `c` - Add hosts (from dashboard, returns to host selection)
 
 ## SSH Configuration
 
