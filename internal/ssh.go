@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type SSHHost struct {
@@ -105,6 +106,42 @@ func expandPath(path string) string {
 	return path
 }
 
+func getHostKeyCallback() (ssh.HostKeyCallback, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get user home directory: %w", err)
+	}
+
+	knownHostsPath := filepath.Join(home, ".ssh", "known_hosts")
+
+	if _, err := os.Stat(knownHostsPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(knownHostsPath), 0700); err != nil {
+			return nil, fmt.Errorf("unable to create .ssh directory: %w", err)
+		}
+		if _, err := os.Create(knownHostsPath); err != nil {
+			return nil, fmt.Errorf("unable to create known_hosts file: %w", err)
+		}
+	}
+
+	hostKeyCallback, err := knownhosts.New(knownHostsPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load known_hosts: %w", err)
+	}
+
+	return ssh.HostKeyCallback(func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		err := hostKeyCallback(hostname, remote, key)
+		if err != nil {
+			if keyErr, ok := err.(*knownhosts.KeyError); ok && len(keyErr.Want) > 0 {
+				return fmt.Errorf("host key verification failed: host key has changed for %s. Remove the old key from %s if you trust this connection", hostname, knownHostsPath)
+			} else if keyErr, ok := err.(*knownhosts.KeyError); ok && len(keyErr.Want) == 0 {
+				return fmt.Errorf("host key verification failed: %s is not in known_hosts. Add the host key to %s or run 'ssh %s' first to accept the host key", hostname, knownHostsPath, hostname)
+			}
+			return fmt.Errorf("host key verification failed: %w", err)
+		}
+		return nil
+	}), nil
+}
+
 func NewSSHClient(host SSHHost) (*SSHClient, error) {
 	// Set defaults
 	if host.Hostname == "" {
@@ -148,10 +185,15 @@ func NewSSHClient(host SSHHost) (*SSHClient, error) {
 		return nil, fmt.Errorf("no authentication methods available")
 	}
 
+	hostKeyCallback, err := getHostKeyCallback()
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup host key verification: %w", err)
+	}
+
 	config := &ssh.ClientConfig{
 		User:            host.User,
 		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         10 * time.Second,
 	}
 
