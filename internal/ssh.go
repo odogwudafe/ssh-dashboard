@@ -241,7 +241,31 @@ func sshAgentAuth() (ssh.AuthMethod, error) {
 	return ssh.PublicKeysCallback(agentClient.Signers), nil
 }
 
+func isAllowedCommand(cmd string) bool {
+	allowedPrefixes := []string{
+		"lscpu ",
+		"top -",
+		"which ",
+		"nvidia-smi ",
+		"free -",
+		"df -",
+	}
+
+	cmd = strings.TrimSpace(cmd)
+	for _, prefix := range allowedPrefixes {
+		if strings.HasPrefix(cmd, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *SSHClient) ExecuteCommand(cmd string) (string, error) {
+	if !isAllowedCommand(cmd) {
+		return "", fmt.Errorf("command not in allowed list: %s", cmd)
+	}
+
 	session, err := c.client.NewSession()
 	if err != nil {
 		return "", err
