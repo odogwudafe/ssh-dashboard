@@ -279,13 +279,13 @@ func renderDashboard(hostName string, info *SystemInfo, updateCount int, lastUpd
 	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(subtitle))
 	b.WriteString("\n\n")
 
-	b.WriteString(renderCPUSection(info.CPU))
-	b.WriteString("\n")
-
 	if len(info.GPUs) > 0 {
 		b.WriteString(renderGPUSection(info.GPUs))
 		b.WriteString("\n")
 	}
+
+	b.WriteString(renderCPUSection(info.CPU))
+	b.WriteString("\n")
 
 	b.WriteString(renderRAMSection(info.RAM))
 	b.WriteString("\n")
