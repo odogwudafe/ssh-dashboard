@@ -281,13 +281,10 @@ func renderDashboard(hostName string, info *SystemInfo, updateCount int, lastUpd
 		b.WriteString("\n")
 	}
 
+	b.WriteString(renderRAMAndDiskSection(info.RAM, info.Disk))
+	b.WriteString("\n")
+
 	b.WriteString(renderCPUSection(info.CPU))
-	b.WriteString("\n")
-
-	b.WriteString(renderRAMSection(info.RAM))
-	b.WriteString("\n")
-
-	b.WriteString(renderDiskSection(info.Disk))
 
 	return b.String()
 }
@@ -371,6 +368,13 @@ func renderSingleGPU(gpu GPUInfo) string {
 	return b.String()
 }
 
+func renderRAMAndDiskSection(ram RAMInfo, disks []DiskInfo) string {
+	ramSection := renderRAMSection(ram)
+	diskSection := renderDiskSection(disks)
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, ramSection, "    ", diskSection) + "\n"
+}
+
 func renderRAMSection(ram RAMInfo) string {
 	var b strings.Builder
 
@@ -382,7 +386,7 @@ func renderRAMSection(ram RAMInfo) string {
 
 	b.WriteString(fmt.Sprintf("  %.1f GB / %.1f GB (%.1f%%)\n", usedGB, totalGB, ram.UsagePercent))
 	b.WriteString("  ")
-	b.WriteString(renderProgressBar(ram.UsagePercent, 60, lipgloss.Color("10")))
+	b.WriteString(renderProgressBar(ram.UsagePercent, 50, lipgloss.Color("10")))
 	b.WriteString("\n")
 
 	return b.String()
@@ -392,7 +396,7 @@ func renderDiskSection(disks []DiskInfo) string {
 	var b strings.Builder
 
 	b.WriteString(headerStyle.Render("● Disk Usage"))
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 
 	for _, disk := range disks {
 		usageStr := strings.TrimSuffix(disk.UsagePercent, "%")
@@ -401,18 +405,8 @@ func renderDiskSection(disks []DiskInfo) string {
 			usagePercent = val
 		}
 
-		deviceInfo := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("12")).
-			Render(disk.Device)
-
-		mountInfo := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			Render(disk.MountPoint)
-
-		b.WriteString(fmt.Sprintf("  %s  %s\n", deviceInfo, mountInfo))
-
-		b.WriteString(fmt.Sprintf("  %s / %s (%s)\n", disk.Used, disk.Size, disk.UsagePercent))
+		b.WriteString(fmt.Sprintf("  %s  %s  %s / %s (%s)\n",
+			disk.Device, disk.MountPoint, disk.Used, disk.Size, disk.UsagePercent))
 
 		b.WriteString("  ")
 
@@ -425,7 +419,7 @@ func renderDiskSection(disks []DiskInfo) string {
 			barColor = lipgloss.Color("10") // Green
 		}
 
-		b.WriteString(renderProgressBar(usagePercent, 60, barColor))
+		b.WriteString(renderProgressBar(usagePercent, 50, barColor))
 		b.WriteString("\n\n")
 	}
 
