@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -374,24 +375,41 @@ func renderDiskSection(disks []DiskInfo) string {
 	var b strings.Builder
 
 	b.WriteString(headerStyle.Render("● Disk Usage"))
-	b.WriteString("\n")
-
-	b.WriteString(fmt.Sprintf("  %-20s  %8s  %8s  %10s  %8s  %s\n",
-		tableHeaderStyle.Render("Device"),
-		tableHeaderStyle.Render("Size"),
-		tableHeaderStyle.Render("Used"),
-		tableHeaderStyle.Render("Available"),
-		tableHeaderStyle.Render("Usage %"),
-		tableHeaderStyle.Render("Mount Point")))
+	b.WriteString("\n\n")
 
 	for _, disk := range disks {
-		b.WriteString(fmt.Sprintf("  %-20s  %8s  %8s  %10s  %8s  %s\n",
-			disk.Device,
-			disk.Size,
-			disk.Used,
-			disk.Available,
-			disk.UsagePercent,
-			disk.MountPoint))
+		usageStr := strings.TrimSuffix(disk.UsagePercent, "%")
+		usagePercent := 0.0
+		if val, err := strconv.ParseFloat(usageStr, 64); err == nil {
+			usagePercent = val
+		}
+
+		deviceInfo := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("12")).
+			Render(disk.Device)
+
+		mountInfo := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			Render(disk.MountPoint)
+
+		b.WriteString(fmt.Sprintf("  %s  %s\n", deviceInfo, mountInfo))
+
+		b.WriteString(fmt.Sprintf("  %s / %s (%s)\n", disk.Used, disk.Size, disk.UsagePercent))
+
+		b.WriteString("  ")
+
+		var barColor lipgloss.Color
+		if usagePercent >= 90 {
+			barColor = lipgloss.Color("196") // Red
+		} else if usagePercent >= 75 {
+			barColor = lipgloss.Color("208") // Orange
+		} else {
+			barColor = lipgloss.Color("10") // Green
+		}
+
+		b.WriteString(renderProgressBar(usagePercent, 60, barColor))
+		b.WriteString("\n\n")
 	}
 
 	return b.String()
