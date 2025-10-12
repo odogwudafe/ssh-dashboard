@@ -276,34 +276,32 @@ func renderDashboard(hostName string, info *SystemInfo, updateCount int, lastUpd
 	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(subtitle))
 	b.WriteString("\n\n")
 
-	if len(info.GPUs) > 0 {
-		b.WriteString(renderGPUSection(info.GPUs))
-		b.WriteString("\n")
-	}
-
-	b.WriteString(renderRAMAndDiskSection(info.RAM, info.Disk))
+	b.WriteString(renderCPUSection(info.CPU))
 	b.WriteString("\n")
 
-	b.WriteString(renderCPUSection(info.CPU))
+	b.WriteString(renderRAMAndDiskSection(info.RAM, info.Disk))
+
+	if len(info.GPUs) > 0 {
+		b.WriteString("\n")
+		b.WriteString(renderGPUSection(info.GPUs))
+	}
 
 	return b.String()
 }
 
 func renderCPUSection(cpu CPUInfo) string {
-	var b strings.Builder
-
-	b.WriteString(headerStyle.Render("● CPU Information"))
-	b.WriteString("\n")
+	var parts []string
 
 	if cpu.Model != "" {
-		b.WriteString(fmt.Sprintf("  Model:  %s\n", cpu.Model))
+		parts = append(parts, cpu.Model)
 	}
 	if cpu.Count != "" {
-		b.WriteString(fmt.Sprintf("  Count:  %s\n", cpu.Count))
+		parts = append(parts, fmt.Sprintf("%s cores", cpu.Count))
 	}
-	b.WriteString(fmt.Sprintf("  Usage:  %s\n", cpu.Usage))
+	parts = append(parts, fmt.Sprintf("Usage: %s", cpu.Usage))
 
-	return b.String()
+	cpuInfo := strings.Join(parts, "  |  ")
+	return headerStyle.Render("● CPU") + "  " + cpuInfo + "\n"
 }
 
 func renderGPUSection(gpus []GPUInfo) string {
@@ -372,7 +370,7 @@ func renderRAMAndDiskSection(ram RAMInfo, disks []DiskInfo) string {
 	ramSection := renderRAMSection(ram)
 	diskSection := renderDiskSection(disks)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, ramSection, "    ", diskSection) + "\n"
+	return lipgloss.JoinHorizontal(lipgloss.Top, diskSection, "    ", ramSection) + "\n"
 }
 
 func renderRAMSection(ram RAMInfo) string {
