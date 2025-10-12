@@ -225,10 +225,6 @@ var (
 			Bold(true).
 			Foreground(lipgloss.Color("63"))
 
-	tableHeaderStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("170"))
-
 	errorStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("196")).
@@ -319,37 +315,58 @@ func renderGPUSection(gpus []GPUInfo) string {
 	b.WriteString(headerStyle.Render("● GPU Information"))
 	b.WriteString("\n\n")
 
-	for _, gpu := range gpus {
-		vramTotalGB := float64(gpu.VRAMTotal) / 1024.0
-		vramUsedGB := float64(gpu.VRAMUsed) / 1024.0
-		vramPercent := 0.0
-		if gpu.VRAMTotal > 0 {
-			vramPercent = (float64(gpu.VRAMUsed) / float64(gpu.VRAMTotal)) * 100
+	for i := 0; i < len(gpus); i += 2 {
+		var leftGPU, rightGPU string
+
+		leftGPU = renderSingleGPU(gpus[i])
+
+		if i+1 < len(gpus) {
+			rightGPU = renderSingleGPU(gpus[i+1])
+			row := lipgloss.JoinHorizontal(lipgloss.Top, leftGPU, "    ", rightGPU)
+			b.WriteString(row)
+		} else {
+			b.WriteString(leftGPU)
 		}
-
-		gpuTitle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("12")).
-			Render(fmt.Sprintf("GPU %s", gpu.Index))
-
-		gpuName := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			Render(gpu.Name)
-
-		b.WriteString(fmt.Sprintf("  %s  %s\n", gpuTitle, gpuName))
-
-		vramLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Render("VRAM")
-		b.WriteString(fmt.Sprintf("  %s %.1f GB / %.1f GB (%.1f%%)\n", vramLabel, vramUsedGB, vramTotalGB, vramPercent))
-		b.WriteString("  ")
-		b.WriteString(renderProgressBar(vramPercent, 60, lipgloss.Color("39")))
 		b.WriteString("\n")
-
-		utilLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Render("Util")
-		b.WriteString(fmt.Sprintf("  %s %d%%\n", utilLabel, gpu.Utilization))
-		b.WriteString("  ")
-		b.WriteString(renderProgressBar(float64(gpu.Utilization), 60, lipgloss.Color("208")))
-		b.WriteString("\n\n")
 	}
+
+	return b.String()
+}
+
+func renderSingleGPU(gpu GPUInfo) string {
+	var b strings.Builder
+
+	vramTotalGB := float64(gpu.VRAMTotal) / 1024.0
+	vramUsedGB := float64(gpu.VRAMUsed) / 1024.0
+	vramPercent := 0.0
+	if gpu.VRAMTotal > 0 {
+		vramPercent = (float64(gpu.VRAMUsed) / float64(gpu.VRAMTotal)) * 100
+	}
+
+	gpuTitle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("12")).
+		Render(fmt.Sprintf("GPU %s", gpu.Index))
+
+	gpuName := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Render(gpu.Name)
+
+	const barWidth = 50
+
+	b.WriteString(fmt.Sprintf("  %s  %s\n", gpuTitle, gpuName))
+
+	vramLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Render("VRAM")
+	b.WriteString(fmt.Sprintf("  %s %.1f/%.1f GB (%.1f%%)\n", vramLabel, vramUsedGB, vramTotalGB, vramPercent))
+	b.WriteString("  ")
+	b.WriteString(renderProgressBar(vramPercent, barWidth, lipgloss.Color("39")))
+	b.WriteString("\n")
+
+	utilLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Render("Util")
+	b.WriteString(fmt.Sprintf("  %s %d%%\n", utilLabel, gpu.Utilization))
+	b.WriteString("  ")
+	b.WriteString(renderProgressBar(float64(gpu.Utilization), barWidth, lipgloss.Color("208")))
+	b.WriteString("\n")
 
 	return b.String()
 }
