@@ -188,13 +188,74 @@ func getHostKeyCallback() (ssh.HostKeyCallback, error) {
 	}), nil
 }
 
+func getValidatedUsername() string {
+	user := os.Getenv("USER")
+	if user == "" {
+		return ""
+	}
+
+	if len(user) > 32 {
+		return ""
+	}
+
+	for _, char := range user {
+		if !((char >= 'a' && char <= 'z') ||
+			(char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') ||
+			char == '_' || char == '-' || char == '.') {
+			return ""
+		}
+	}
+
+	return user
+}
+
+func getValidatedSSHAuthSock() string {
+	socket := os.Getenv("SSH_AUTH_SOCK")
+	if socket == "" {
+		return ""
+	}
+
+	if !filepath.IsAbs(socket) {
+		return ""
+	}
+
+	cleanSocket := filepath.Clean(socket)
+	if strings.Contains(cleanSocket, "..") {
+		return ""
+	}
+
+	validPrefixes := []string{
+		"/tmp/",
+		"/var/run/",
+		"/run/",
+	}
+
+	if tmpDir := os.Getenv("TMPDIR"); tmpDir != "" {
+		validPrefixes = append(validPrefixes, tmpDir)
+	}
+
+	for _, prefix := range validPrefixes {
+		if strings.HasPrefix(cleanSocket, prefix) {
+			return socket
+		}
+	}
+
+	if info, err := os.Stat(socket); err == nil {
+		if info.Mode()&os.ModeSocket != 0 {
+			return socket
+		}
+	}
+
+	return ""
+}
+
 func NewSSHClient(host SSHHost) (*SSHClient, error) {
-	// Set defaults
 	if host.Hostname == "" {
 		host.Hostname = host.Name
 	}
 	if host.User == "" {
-		host.User = os.Getenv("USER")
+		host.User = getValidatedUsername()
 	}
 	if host.Port == "" {
 		host.Port = "22"
@@ -272,9 +333,9 @@ func publicKeyAuth(keyPath string) (ssh.AuthMethod, error) {
 }
 
 func sshAgentAuth() (ssh.AuthMethod, error) {
-	socket := os.Getenv("SSH_AUTH_SOCK")
+	socket := getValidatedSSHAuthSock()
 	if socket == "" {
-		return nil, fmt.Errorf("SSH_AUTH_SOCK not set")
+		return nil, fmt.Errorf("SSH_AUTH_SOCK not set or invalid")
 	}
 
 	conn, err := net.Dial("unix", socket)

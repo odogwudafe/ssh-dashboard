@@ -11,17 +11,35 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+func getValidatedInterval() time.Duration {
+	envInterval := os.Getenv("SSH_DASHBOARD_INTERVAL")
+	if envInterval == "" {
+		return 0
+	}
+
+	seconds, err := strconv.Atoi(envInterval)
+	if err != nil {
+		return 0
+	}
+
+	if seconds < 1 || seconds > 3600 {
+		return 0
+	}
+
+	return time.Duration(seconds) * time.Second
+}
+
 func main() {
 	updateInterval := flag.Int("interval", 0, "Update interval in seconds (default: 5, or SSH_DASHBOARD_INTERVAL env var)")
 	flag.Parse()
 
 	interval := 5 * time.Second
 	if *updateInterval > 0 {
-		interval = time.Duration(*updateInterval) * time.Second
-	} else if envInterval := os.Getenv("SSH_DASHBOARD_INTERVAL"); envInterval != "" {
-		if seconds, err := strconv.Atoi(envInterval); err == nil && seconds > 0 {
-			interval = time.Duration(seconds) * time.Second
+		if *updateInterval > 0 && *updateInterval <= 3600 {
+			interval = time.Duration(*updateInterval) * time.Second
 		}
+	} else if envInterval := getValidatedInterval(); envInterval > 0 {
+		interval = envInterval
 	}
 
 	hosts, err := internal.ParseSSHConfig("")
