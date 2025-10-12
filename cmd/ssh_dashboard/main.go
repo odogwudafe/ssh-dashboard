@@ -12,11 +12,10 @@ import (
 )
 
 func main() {
-	updateInterval := flag.Int("interval", 0, "Update interval in seconds (default: 10, or SSH_DASHBOARD_INTERVAL env var)")
+	updateInterval := flag.Int("interval", 0, "Update interval in seconds (default: 5, or SSH_DASHBOARD_INTERVAL env var)")
 	flag.Parse()
 
-	// Determine update interval: CLI flag > env var > default (10s)
-	interval := 10 * time.Second
+	interval := 5 * time.Second
 	if *updateInterval > 0 {
 		interval = time.Duration(*updateInterval) * time.Second
 	} else if envInterval := os.Getenv("SSH_DASHBOARD_INTERVAL"); envInterval != "" {

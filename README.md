@@ -42,19 +42,19 @@ The tool will:
 1. Scan your `~/.ssh/config` for available hosts
 2. Present an interactive list to select from
 3. Connect and display a live dashboard
-4. Update stats every 10 seconds (configurable)
+4. Update stats every 5 seconds (configurable)
 
 ### Configuration
 
 **Update Interval:**
 
-Control how often the dashboard refreshes (default: 10 seconds):
+Control how often the dashboard refreshes (default: 5 seconds):
 
 ```bash
-ssh-dashboard -interval 5
+ssh-dashboard -interval 1
 
 # or with an env var
-export SSH_DASHBOARD_INTERVAL=5
+export SSH_DASHBOARD_INTERVAL=1
 ssh-dashboard
 ```
 
@@ -72,13 +72,13 @@ Make sure your `~/.ssh/config` is properly configured:
 Host myserver
     HostName 192.168.1.100
     User username
-    Port 22
-    IdentityFile ~/.ssh/id_rsa
+    Port 22  # optional
+    IdentityFile ~/.ssh/id_rsa  # optional
 
 Host gpu-server
     HostName gpu.example.com
     User admin
-    IdentityFile ~/.ssh/id_ed25519
+    IdentityFile ~/.ssh/id_ed25519  # optional
 ```
 
 ### SSH Agent
