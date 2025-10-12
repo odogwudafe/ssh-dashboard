@@ -51,9 +51,40 @@ func (h hostItem) FilterValue() string { return h.Name }
 func (h hostItem) Title() string       { return h.Name }
 func (h hostItem) Description() string {
 	if h.Hostname != "" {
-		return fmt.Sprintf("%s@%s:%s", h.User, h.Hostname, h.Port)
+		return fmt.Sprintf("%s@%s:%s", h.User, censorHostname(h.Hostname), h.Port)
 	}
 	return ""
+}
+
+func censorHostname(hostname string) string {
+	if hostname == "" {
+		return ""
+	}
+
+	// for IP addresses (contains dots)
+	if strings.Contains(hostname, ".") {
+		parts := strings.Split(hostname, ".")
+		if len(parts) >= 4 {
+			// IPv4: show first octet, censor middle, show last 2 chars of last octet
+			lastOctet := parts[len(parts)-1]
+			lastPart := lastOctet
+			if len(lastOctet) > 2 {
+				lastPart = lastOctet[len(lastOctet)-2:]
+			}
+			return fmt.Sprintf("%s.***.***%s", parts[0], lastPart)
+		}
+	}
+
+	// for hostnames: show first 3 chars and last 3 chars
+	if len(hostname) <= 8 {
+		if len(hostname) <= 3 {
+			return hostname
+		}
+		return hostname[:2] + strings.Repeat("*", len(hostname)-2)
+	}
+
+	// longer hostname: show first 3 and last 3 with asterisks in between
+	return hostname[:3] + strings.Repeat("*", 5) + hostname[len(hostname)-3:]
 }
 
 func InitialModel(hosts []SSHHost) Model {
