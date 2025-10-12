@@ -21,38 +21,50 @@ const (
 )
 
 type Model struct {
-	screen       Screen
-	hosts        []SSHHost
-	selectedHost *SSHHost
-	list         list.Model
-	client       *SSHClient
-	sysInfo      *SystemInfo
-	updateCount  int
-	lastUpdate   time.Time
-	err          error
-	width        int
-	height       int
+	screen         Screen
+	hosts          []SSHHost
+	selectedHosts  []SSHHost
+	currentHostIdx int
+	list           list.Model
+	clients        map[string]*SSHClient
+	sysInfos       map[string]*SystemInfo
+	updateCounts   map[string]int
+	lastUpdates    map[string]time.Time
+	err            error
+	width          int
+	height         int
 }
 
 type TickMsg time.Time
 
 type SystemInfoMsg struct {
-	info *SystemInfo
-	err  error
+	hostName string
+	info     *SystemInfo
+	err      error
 }
 
 type ConnectedMsg struct {
-	client *SSHClient
-	err    error
+	hostName string
+	client   *SSHClient
+	err      error
 }
 
-type hostItem SSHHost
+type hostItem struct {
+	host     SSHHost
+	selected bool
+}
 
-func (h hostItem) FilterValue() string { return h.Name }
-func (h hostItem) Title() string       { return h.Name }
+func (h hostItem) FilterValue() string { return h.host.Name }
+func (h hostItem) Title() string {
+	prefix := "  "
+	if h.selected {
+		prefix = "✓ "
+	}
+	return prefix + h.host.Name
+}
 func (h hostItem) Description() string {
-	if h.Hostname != "" {
-		return fmt.Sprintf("%s@%s:%s", h.User, censorHostname(h.Hostname), h.Port)
+	if h.host.Hostname != "" {
+		return fmt.Sprintf("  %s@%s:%s", h.host.User, censorHostname(h.host.Hostname), h.host.Port)
 	}
 	return ""
 }
@@ -91,20 +103,41 @@ func censorHostname(hostname string) string {
 func InitialModel(hosts []SSHHost) Model {
 	items := make([]list.Item, len(hosts))
 	for i, h := range hosts {
-		items[i] = hostItem(h)
+		items[i] = hostItem{host: h, selected: false}
 	}
 
 	delegate := list.NewDefaultDelegate()
 	l := list.New(items, delegate, 0, 0)
-	l.Title = "Select an SSH Host to Monitor"
+	l.Title = "Select SSH Hosts to Monitor (Space to select, Enter to confirm)"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(true)
 
 	return Model{
-		screen: ScreenHostList,
-		hosts:  hosts,
-		list:   l,
+		screen:       ScreenHostList,
+		hosts:        hosts,
+		list:         l,
+		clients:      make(map[string]*SSHClient),
+		sysInfos:     make(map[string]*SystemInfo),
+		updateCounts: make(map[string]int),
+		lastUpdates:  make(map[string]time.Time),
 	}
+}
+
+func (m *Model) updateListSelection() {
+	items := m.list.Items()
+	selectedMap := make(map[string]bool)
+	for _, h := range m.selectedHosts {
+		selectedMap[h.Name] = true
+	}
+
+	newItems := make([]list.Item, len(items))
+	for i, item := range items {
+		if hi, ok := item.(hostItem); ok {
+			hi.selected = selectedMap[hi.host.Name]
+			newItems[i] = hi
+		}
+	}
+	m.list.SetItems(newItems)
 }
 
 func (m Model) Init() tea.Cmd {
@@ -116,17 +149,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
-			if m.client != nil {
-				m.client.Close()
+			for _, client := range m.clients {
+				if client != nil {
+					client.Close()
+				}
 			}
 			return m, tea.Quit
-		case "enter":
+		case " ":
 			if m.screen == ScreenHostList {
 				if item, ok := m.list.SelectedItem().(hostItem); ok {
-					host := SSHHost(item)
-					m.selectedHost = &host
-					m.screen = ScreenConnecting
-					return m, m.connectToHost()
+					host := item.host
+					found := false
+					for i, h := range m.selectedHosts {
+						if h.Name == host.Name {
+							m.selectedHosts = append(m.selectedHosts[:i], m.selectedHosts[i+1:]...)
+							found = true
+							break
+						}
+					}
+					if !found {
+						m.selectedHosts = append(m.selectedHosts, host)
+					}
+					m.updateListSelection()
+				}
+			}
+		case "enter":
+			if m.screen == ScreenHostList && len(m.selectedHosts) > 0 {
+				m.screen = ScreenConnecting
+				return m, m.connectToHosts()
+			}
+		case "n":
+			if m.screen == ScreenDashboard && len(m.selectedHosts) > 1 {
+				m.currentHostIdx = (m.currentHostIdx + 1) % len(m.selectedHosts)
+				nextHost := m.selectedHosts[m.currentHostIdx]
+				if m.clients[nextHost.Name] == nil {
+					return m, m.connectToHost(nextHost)
 				}
 			}
 		}
@@ -138,27 +195,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ConnectedMsg:
 		if msg.err != nil {
-			m.err = msg.err
+			m.err = fmt.Errorf("failed to connect to %s: %w", msg.hostName, msg.err)
 			m.screen = ScreenError
 			return m, nil
 		}
-		m.client = msg.client
-		m.screen = ScreenDashboard
-		return m, tea.Batch(m.gatherSysInfo(), m.tick())
+		m.clients[msg.hostName] = msg.client
+
+		if m.screen == ScreenConnecting && len(m.clients) == 1 {
+			m.screen = ScreenDashboard
+			return m, tea.Batch(m.gatherAllSysInfo(), m.tick())
+		}
+
+		if m.screen == ScreenDashboard {
+			return m, m.gatherSysInfoForHost(msg.hostName)
+		}
 
 	case SystemInfoMsg:
 		if msg.err != nil {
-			m.err = msg.err
-			m.screen = ScreenError
 			return m, nil
 		}
-		m.sysInfo = msg.info
-		m.updateCount++
-		m.lastUpdate = time.Now()
+		m.sysInfos[msg.hostName] = msg.info
+		m.updateCounts[msg.hostName]++
+		m.lastUpdates[msg.hostName] = time.Now()
 
 	case TickMsg:
 		// update every 10 seconds
-		return m, tea.Batch(m.gatherSysInfo(), m.tick())
+		return m, tea.Batch(m.gatherAllSysInfo(), m.tick())
 	}
 
 	if m.screen == ScreenHostList {
@@ -173,14 +235,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	switch m.screen {
 	case ScreenHostList:
-		return m.list.View()
+		listView := m.list.View()
+		if len(m.selectedHosts) > 0 {
+			selectedNames := make([]string, len(m.selectedHosts))
+			for i, h := range m.selectedHosts {
+				selectedNames[i] = h.Name
+			}
+			footer := fmt.Sprintf("\nSelected (%d): %s", len(m.selectedHosts), strings.Join(selectedNames, ", "))
+			listView += lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(footer)
+		}
+		return listView
 
 	case ScreenConnecting:
-		return renderConnecting(m.selectedHost.Name)
+		return renderConnecting(len(m.selectedHosts))
 
 	case ScreenDashboard:
-		if m.sysInfo != nil {
-			return renderDashboard(m.selectedHost.Name, m.sysInfo, m.updateCount, m.lastUpdate, m.width, m.height)
+		if len(m.selectedHosts) > 0 && m.currentHostIdx < len(m.selectedHosts) {
+			currentHost := m.selectedHosts[m.currentHostIdx]
+
+			if m.clients[currentHost.Name] == nil {
+				return boxStyle.Render(fmt.Sprintf("Connecting to %s...\n\nPlease wait...", currentHost.Name))
+			}
+
+			sysInfo := m.sysInfos[currentHost.Name]
+			updateCount := m.updateCounts[currentHost.Name]
+			lastUpdate := m.lastUpdates[currentHost.Name]
+
+			if sysInfo != nil {
+				hostIndicator := ""
+				if len(m.selectedHosts) > 1 {
+					hostIndicator = fmt.Sprintf(" [%d/%d]", m.currentHostIdx+1, len(m.selectedHosts))
+				}
+				return renderDashboard(currentHost.Name+hostIndicator, sysInfo, updateCount, lastUpdate, m.width, m.height, len(m.selectedHosts) > 1)
+			}
 		}
 		return "Loading system information..."
 
@@ -191,20 +278,43 @@ func (m Model) View() string {
 	return ""
 }
 
-func (m Model) connectToHost() tea.Cmd {
+func (m Model) connectToHosts() tea.Cmd {
+	if len(m.selectedHosts) > 0 {
+		return m.connectToHost(m.selectedHosts[0])
+	}
+	return nil
+}
+
+func (m Model) connectToHost(host SSHHost) tea.Cmd {
 	return func() tea.Msg {
-		client, err := NewSSHClient(*m.selectedHost)
-		return ConnectedMsg{client: client, err: err}
+		client, err := NewSSHClient(host)
+		return ConnectedMsg{hostName: host.Name, client: client, err: err}
 	}
 }
 
-func (m Model) gatherSysInfo() tea.Cmd {
-	return func() tea.Msg {
-		if m.client == nil {
-			return SystemInfoMsg{err: fmt.Errorf("no active SSH connection")}
+func (m Model) gatherAllSysInfo() tea.Cmd {
+	var cmds []tea.Cmd
+	for _, host := range m.selectedHosts {
+		h := host
+		client := m.clients[h.Name]
+		if client != nil {
+			cmds = append(cmds, func() tea.Msg {
+				info, err := GatherSystemInfo(client)
+				return SystemInfoMsg{hostName: h.Name, info: info, err: err}
+			})
 		}
-		info, err := GatherSystemInfo(m.client)
-		return SystemInfoMsg{info: info, err: err}
+	}
+	return tea.Batch(cmds...)
+}
+
+func (m Model) gatherSysInfoForHost(hostName string) tea.Cmd {
+	client := m.clients[hostName]
+	if client == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		info, err := GatherSystemInfo(client)
+		return SystemInfoMsg{hostName: hostName, info: info, err: err}
 	}
 }
 
@@ -256,20 +366,27 @@ func renderProgressBar(percent float64, width int, color lipgloss.Color) string 
 	return bar
 }
 
-func renderConnecting(hostName string) string {
-	return boxStyle.Render(fmt.Sprintf("Connecting to %s...\n\nPlease wait...", hostName))
+func renderConnecting(numHosts int) string {
+	if numHosts == 1 {
+		return boxStyle.Render("Connecting to host...\n\nPlease wait...")
+	}
+	return boxStyle.Render(fmt.Sprintf("Connecting to %d hosts...\n\nPlease wait...", numHosts))
 }
 
 func renderError(err error) string {
 	return errorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'q' to quit", err))
 }
 
-func renderDashboard(hostName string, info *SystemInfo, updateCount int, lastUpdate time.Time, width, height int) string {
+func renderDashboard(hostName string, info *SystemInfo, updateCount int, lastUpdate time.Time, width, height int, multiHost bool) string {
 	var b strings.Builder
 
 	title := fmt.Sprintf("  System Dashboard - %s  ", hostName)
-	subtitle := fmt.Sprintf("Last Updated: %s | Updates: %d | Press 'q' to quit",
-		lastUpdate.Format("15:04:05"), updateCount)
+	navHint := ""
+	if multiHost {
+		navHint = " | Press 'n' for next host"
+	}
+	subtitle := fmt.Sprintf("Last Updated: %s | Updates: %d%s | Press 'q' to quit",
+		lastUpdate.Format("15:04:05"), updateCount, navHint)
 
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")
