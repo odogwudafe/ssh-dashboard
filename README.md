@@ -8,6 +8,26 @@ Monitor CPU, GPU, RAM, and disk usage on your remote servers with a live-updatin
 
 ## Installation
 
+### Pre-built Binaries
+
+Download the latest release for your platform from the [Releases page](https://github.com/AlpinDale/ssh-dashboard/releases).
+
+**Quick install (Linux/macOS):**
+```bash
+# Download the binary for your platform
+# Example for Linux AMD64:
+curl -L -o ssh-dashboard https://github.com/AlpinDale/ssh-dashboard/releases/download/v1.0.0/ssh-dashboard-v1.0.0-linux-amd64
+
+# Make it executable and move to PATH
+chmod +x ssh-dashboard
+sudo mv ssh-dashboard /usr/local/bin/
+```
+
+**Supported platforms:**
+- `linux-amd64`, `linux-arm64`
+- `darwin-amd64` (Intel Mac), `darwin-arm64` (Apple Silicon)
+- `windows-amd64.exe`, `windows-arm64.exe`
+
 ### From Source
 
 ```bash
