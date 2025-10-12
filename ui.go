@@ -1,0 +1,339 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+type Screen int
+
+const (
+	ScreenHostList Screen = iota
+	ScreenConnecting
+	ScreenDashboard
+	ScreenError
+)
+
+type Model struct {
+	screen       Screen
+	hosts        []SSHHost
+	selectedHost *SSHHost
+	list         list.Model
+	client       *SSHClient
+	sysInfo      *SystemInfo
+	updateCount  int
+	lastUpdate   time.Time
+	err          error
+	width        int
+	height       int
+}
+
+type TickMsg time.Time
+
+type SystemInfoMsg struct {
+	info *SystemInfo
+	err  error
+}
+
+type ConnectedMsg struct {
+	client *SSHClient
+	err    error
+}
+
+type hostItem SSHHost
+
+func (h hostItem) FilterValue() string { return h.Name }
+func (h hostItem) Title() string       { return h.Name }
+func (h hostItem) Description() string {
+	if h.Hostname != "" {
+		return fmt.Sprintf("%s@%s:%s", h.User, h.Hostname, h.Port)
+	}
+	return ""
+}
+
+func InitialModel(hosts []SSHHost) Model {
+	items := make([]list.Item, len(hosts))
+	for i, h := range hosts {
+		items[i] = hostItem(h)
+	}
+
+	delegate := list.NewDefaultDelegate()
+	l := list.New(items, delegate, 0, 0)
+	l.Title = "Select an SSH Host to Monitor"
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(true)
+
+	return Model{
+		screen: ScreenHostList,
+		hosts:  hosts,
+		list:   l,
+	}
+}
+
+func (m Model) Init() tea.Cmd {
+	return nil
+}
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			if m.client != nil {
+				m.client.Close()
+			}
+			return m, tea.Quit
+		case "enter":
+			if m.screen == ScreenHostList {
+				if item, ok := m.list.SelectedItem().(hostItem); ok {
+					host := SSHHost(item)
+					m.selectedHost = &host
+					m.screen = ScreenConnecting
+					return m, m.connectToHost()
+				}
+			}
+		}
+
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.list.SetSize(msg.Width, msg.Height-2)
+
+	case ConnectedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.screen = ScreenError
+			return m, nil
+		}
+		m.client = msg.client
+		m.screen = ScreenDashboard
+		return m, tea.Batch(m.gatherSysInfo(), m.tick())
+
+	case SystemInfoMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.screen = ScreenError
+			return m, nil
+		}
+		m.sysInfo = msg.info
+		m.updateCount++
+		m.lastUpdate = time.Now()
+
+	case TickMsg:
+		// update every 10 seconds
+		return m, tea.Batch(m.gatherSysInfo(), m.tick())
+	}
+
+	if m.screen == ScreenHostList {
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+	}
+
+	return m, nil
+}
+
+func (m Model) View() string {
+	switch m.screen {
+	case ScreenHostList:
+		return m.list.View()
+
+	case ScreenConnecting:
+		return renderConnecting(m.selectedHost.Name)
+
+	case ScreenDashboard:
+		if m.sysInfo != nil {
+			return renderDashboard(m.selectedHost.Name, m.sysInfo, m.updateCount, m.lastUpdate, m.width, m.height)
+		}
+		return "Loading system information..."
+
+	case ScreenError:
+		return renderError(m.err)
+	}
+
+	return ""
+}
+
+func (m Model) connectToHost() tea.Cmd {
+	return func() tea.Msg {
+		client, err := NewSSHClient(*m.selectedHost)
+		return ConnectedMsg{client: client, err: err}
+	}
+}
+
+func (m Model) gatherSysInfo() tea.Cmd {
+	return func() tea.Msg {
+		if m.client == nil {
+			return SystemInfoMsg{err: fmt.Errorf("no active SSH connection")}
+		}
+		info, err := GatherSystemInfo(m.client)
+		return SystemInfoMsg{info: info, err: err}
+	}
+}
+
+func (m Model) tick() tea.Cmd {
+	return tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
+		return TickMsg(t)
+	})
+}
+
+var (
+	titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("86")).
+			Background(lipgloss.Color("63")).
+			Padding(0, 1)
+
+	headerStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("63"))
+
+	tableHeaderStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("170"))
+
+	errorStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("196")).
+			Padding(1, 2)
+
+	boxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("63")).
+			Padding(1, 2)
+)
+
+func renderConnecting(hostName string) string {
+	return boxStyle.Render(fmt.Sprintf("Connecting to %s...\n\nPlease wait...", hostName))
+}
+
+func renderError(err error) string {
+	return errorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'q' to quit", err))
+}
+
+func renderDashboard(hostName string, info *SystemInfo, updateCount int, lastUpdate time.Time, width, height int) string {
+	var b strings.Builder
+
+	title := fmt.Sprintf("  System Dashboard - %s  ", hostName)
+	subtitle := fmt.Sprintf("Last Updated: %s | Updates: %d | Press 'q' to quit",
+		lastUpdate.Format("15:04:05"), updateCount)
+
+	b.WriteString(titleStyle.Render(title))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(subtitle))
+	b.WriteString("\n\n")
+
+	b.WriteString(renderCPUSection(info.CPU))
+	b.WriteString("\n")
+
+	if len(info.GPUs) > 0 {
+		b.WriteString(renderGPUSection(info.GPUs))
+		b.WriteString("\n")
+	}
+
+	b.WriteString(renderRAMSection(info.RAM))
+	b.WriteString("\n")
+
+	b.WriteString(renderDiskSection(info.Disk))
+
+	return b.String()
+}
+
+func renderCPUSection(cpu CPUInfo) string {
+	var b strings.Builder
+
+	b.WriteString(headerStyle.Render("● CPU Information"))
+	b.WriteString("\n")
+
+	if cpu.Model != "" {
+		b.WriteString(fmt.Sprintf("  Model:  %s\n", cpu.Model))
+	}
+	if cpu.Count != "" {
+		b.WriteString(fmt.Sprintf("  Count:  %s\n", cpu.Count))
+	}
+	b.WriteString(fmt.Sprintf("  Usage:  %s\n", cpu.Usage))
+
+	return b.String()
+}
+
+func renderGPUSection(gpus []GPUInfo) string {
+	var b strings.Builder
+
+	b.WriteString(headerStyle.Render("● GPU Information"))
+	b.WriteString("\n")
+
+	b.WriteString(fmt.Sprintf("  %-6s  %-30s  %12s  %12s  %10s  %8s\n",
+		tableHeaderStyle.Render("GPU"),
+		tableHeaderStyle.Render("Name"),
+		tableHeaderStyle.Render("VRAM Total"),
+		tableHeaderStyle.Render("VRAM Used"),
+		tableHeaderStyle.Render("VRAM %"),
+		tableHeaderStyle.Render("GPU %")))
+
+	for _, gpu := range gpus {
+		vramTotalGB := float64(gpu.VRAMTotal) / 1024.0
+		vramUsedGB := float64(gpu.VRAMUsed) / 1024.0
+		vramPercent := 0.0
+		if gpu.VRAMTotal > 0 {
+			vramPercent = (float64(gpu.VRAMUsed) / float64(gpu.VRAMTotal)) * 100
+		}
+
+		b.WriteString(fmt.Sprintf("  %-6s  %-30s  %10.1f GB  %10.1f GB  %9.1f%%  %7d%%\n",
+			fmt.Sprintf("GPU %s", gpu.Index),
+			gpu.Name,
+			vramTotalGB,
+			vramUsedGB,
+			vramPercent,
+			gpu.Utilization))
+	}
+
+	return b.String()
+}
+
+func renderRAMSection(ram RAMInfo) string {
+	var b strings.Builder
+
+	b.WriteString(headerStyle.Render("● RAM Information"))
+	b.WriteString("\n")
+
+	totalGB := float64(ram.Total) / 1024.0
+	usedGB := float64(ram.Used) / 1024.0
+
+	b.WriteString(fmt.Sprintf("  Total:  %.1f GB\n", totalGB))
+	b.WriteString(fmt.Sprintf("  Used:   %.1f GB\n", usedGB))
+	b.WriteString(fmt.Sprintf("  Usage:  %.1f%%\n", ram.UsagePercent))
+
+	return b.String()
+}
+
+func renderDiskSection(disks []DiskInfo) string {
+	var b strings.Builder
+
+	b.WriteString(headerStyle.Render("● Disk Usage"))
+	b.WriteString("\n")
+
+	b.WriteString(fmt.Sprintf("  %-20s  %8s  %8s  %10s  %8s  %s\n",
+		tableHeaderStyle.Render("Device"),
+		tableHeaderStyle.Render("Size"),
+		tableHeaderStyle.Render("Used"),
+		tableHeaderStyle.Render("Available"),
+		tableHeaderStyle.Render("Usage %"),
+		tableHeaderStyle.Render("Mount Point")))
+
+	for _, disk := range disks {
+		b.WriteString(fmt.Sprintf("  %-20s  %8s  %8s  %10s  %8s  %s\n",
+			disk.Device,
+			disk.Size,
+			disk.Used,
+			disk.Available,
+			disk.UsagePercent,
+			disk.MountPoint))
+	}
+
+	return b.String()
+}
