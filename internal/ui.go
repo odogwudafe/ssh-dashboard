@@ -546,18 +546,48 @@ func renderSingleGPU(gpu GPUInfo) string {
 		vramPercent = (float64(gpu.VRAMUsed) / float64(gpu.VRAMTotal)) * 100
 	}
 
-	gpuTitle := lipgloss.NewStyle().
+	gpuIndex := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("12")).
-		Render(fmt.Sprintf("GPU %s", gpu.Index))
+		Render(gpu.Index)
 
 	gpuName := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).
 		Render(gpu.Name)
 
+	powerPercent := 0.0
+	if gpu.PowerLimit > 0 {
+		powerPercent = (float64(gpu.PowerDraw) / float64(gpu.PowerLimit)) * 100
+	}
+	var powerColor lipgloss.Color
+	if powerPercent < 70 {
+		powerColor = lipgloss.Color("10") // Green
+	} else if powerPercent < 90 {
+		powerColor = lipgloss.Color("11") // Yellow
+	} else {
+		powerColor = lipgloss.Color("196") // Red
+	}
+	powerText := lipgloss.NewStyle().
+		Foreground(powerColor).
+		Render(fmt.Sprintf("%dW", gpu.PowerDraw))
+
+	var tempColor lipgloss.Color
+	if gpu.Temperature < 70 {
+		tempColor = lipgloss.Color("10") // Green
+	} else if gpu.Temperature < 80 {
+		tempColor = lipgloss.Color("11") // Yellow
+	} else if gpu.Temperature < 85 {
+		tempColor = lipgloss.Color("208") // Orange
+	} else {
+		tempColor = lipgloss.Color("196") // Red
+	}
+	tempText := lipgloss.NewStyle().
+		Foreground(tempColor).
+		Render(fmt.Sprintf("%d°C", gpu.Temperature))
+
 	const barWidth = 50
 
-	b.WriteString(fmt.Sprintf("  %s  %s\n", gpuTitle, gpuName))
+	b.WriteString(fmt.Sprintf("  %s  %s  %s  %s\n", gpuIndex, gpuName, powerText, tempText))
 
 	vramLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Render("VRAM")
 	b.WriteString(fmt.Sprintf("  %s %.1f/%.1f GB (%.1f%%)\n", vramLabel, vramUsedGB, vramTotalGB, vramPercent))

@@ -25,6 +25,9 @@ type GPUInfo struct {
 	VRAMTotal   int // in MB
 	VRAMUsed    int // in MB
 	Utilization int // percentage
+	PowerDraw   int // in Watts
+	PowerLimit  int // in Watts
+	Temperature int // in Celsius
 }
 
 type RAMInfo struct {
@@ -113,7 +116,7 @@ func getGPUInfo(client *SSHClient) ([]GPUInfo, error) {
 		return []GPUInfo{}, nil // No NVIDIA GPUs found
 	}
 
-	output, err := client.ExecuteCommand("nvidia-smi --query-gpu=index,name,memory.total,memory.used,utilization.gpu --format=csv,noheader,nounits")
+	output, err := client.ExecuteCommand("nvidia-smi --query-gpu=index,name,memory.total,memory.used,utilization.gpu,power.draw,power.limit,temperature.gpu --format=csv,noheader,nounits")
 	if err != nil {
 		return []GPUInfo{}, nil
 	}
@@ -126,7 +129,7 @@ func getGPUInfo(client *SSHClient) ([]GPUInfo, error) {
 		}
 
 		parts := strings.Split(line, ",")
-		if len(parts) >= 5 {
+		if len(parts) >= 8 {
 			gpu := GPUInfo{
 				Index: strings.TrimSpace(parts[0]),
 				Name:  strings.TrimSpace(parts[1]),
@@ -140,6 +143,15 @@ func getGPUInfo(client *SSHClient) ([]GPUInfo, error) {
 			}
 			if val, err := strconv.Atoi(strings.TrimSpace(parts[4])); err == nil {
 				gpu.Utilization = val
+			}
+			if val, err := strconv.ParseFloat(strings.TrimSpace(parts[5]), 64); err == nil {
+				gpu.PowerDraw = int(val)
+			}
+			if val, err := strconv.ParseFloat(strings.TrimSpace(parts[6]), 64); err == nil {
+				gpu.PowerLimit = int(val)
+			}
+			if val, err := strconv.Atoi(strings.TrimSpace(parts[7])); err == nil {
+				gpu.Temperature = val
 			}
 
 			gpus = append(gpus, gpu)
