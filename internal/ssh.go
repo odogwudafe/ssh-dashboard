@@ -118,27 +118,14 @@ func NewSSHClient(host SSHHost) (*SSHClient, error) {
 	}
 
 	var authMethods []ssh.AuthMethod
-	var debugInfo []string
 
-	fmt.Fprintf(os.Stderr, "[DEBUG] Trying SSH agent...\n")
 	agentAuth, agentErr := sshAgentAuth()
 	if agentErr == nil {
 		authMethods = append(authMethods, agentAuth)
-		debugInfo = append(debugInfo, "SSH agent")
-		fmt.Fprintf(os.Stderr, "[DEBUG] SSH agent available, using agent only\n")
 	} else {
-		fmt.Fprintf(os.Stderr, "[DEBUG] SSH agent error: %v\n", agentErr)
-
-		fmt.Fprintf(os.Stderr, "[DEBUG] Falling back to file-based authentication\n")
-
 		if host.IdentityFile != "" {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Trying identity file: %s\n", host.IdentityFile)
 			if keyAuth, err := publicKeyAuth(host.IdentityFile); err == nil {
 				authMethods = append(authMethods, keyAuth)
-				debugInfo = append(debugInfo, fmt.Sprintf("key: %s", host.IdentityFile))
-				fmt.Fprintf(os.Stderr, "[DEBUG] Identity file loaded successfully\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Identity file error: %v\n", err)
 			}
 		}
 
@@ -150,19 +137,12 @@ func NewSSHClient(host SSHHost) (*SSHClient, error) {
 				filepath.Join(home, ".ssh", "id_ecdsa"),
 			}
 			for _, keyPath := range defaultKeys {
-				fmt.Fprintf(os.Stderr, "[DEBUG] Trying default key: %s\n", keyPath)
 				if keyAuth, err := publicKeyAuth(keyPath); err == nil {
 					authMethods = append(authMethods, keyAuth)
-					debugInfo = append(debugInfo, fmt.Sprintf("key: %s", keyPath))
-					fmt.Fprintf(os.Stderr, "[DEBUG] Default key loaded successfully\n")
-				} else {
-					fmt.Fprintf(os.Stderr, "[DEBUG] Default key error: %v\n", err)
 				}
 			}
 		}
 	}
-
-	fmt.Fprintf(os.Stderr, "[DEBUG] Total auth methods: %d (%v)\n", len(authMethods), debugInfo)
 
 	if len(authMethods) == 0 {
 		return nil, fmt.Errorf("no authentication methods available")
@@ -200,10 +180,6 @@ func publicKeyAuth(keyPath string) (ssh.AuthMethod, error) {
 		return nil, err
 	}
 
-	pubKey := signer.PublicKey()
-	fingerprint := ssh.FingerprintSHA256(pubKey)
-	fmt.Fprintf(os.Stderr, "[DEBUG]   Key type: %s, Fingerprint: %s\n", pubKey.Type(), fingerprint)
-
 	return ssh.PublicKeys(signer), nil
 }
 
@@ -219,15 +195,6 @@ func sshAgentAuth() (ssh.AuthMethod, error) {
 	}
 
 	agentClient := agent.NewClient(conn)
-
-	keys, err := agentClient.List()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agent keys: %w", err)
-	}
-	fmt.Fprintf(os.Stderr, "[DEBUG]   Agent has %d key(s):\n", len(keys))
-	for i, key := range keys {
-		fmt.Fprintf(os.Stderr, "[DEBUG]     %d. %s %s\n", i+1, key.Type(), key.Comment)
-	}
 
 	return ssh.PublicKeysCallback(agentClient.Signers), nil
 }
