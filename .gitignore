@@ -1,7 +1,7 @@
 # Binaries
 /ssh-dashboard
 /ssh-dashboard-*
-test_ssh
+test_*
 *.exe
 *.exe~
 *.dll

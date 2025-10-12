@@ -354,6 +354,8 @@ func isAllowedCommand(cmd string) bool {
 		"top -",
 		"which ",
 		"nvidia-smi ",
+		"amd-smi ",
+		"rocm-smi ",
 		"free -",
 		"df -",
 	}
