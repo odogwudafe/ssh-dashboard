@@ -441,6 +441,11 @@ func renderDashboard(hostName string, info *SystemInfo, updateInterval time.Dura
 
 	b.WriteString(renderRAMAndDiskSection(info.RAM, info.Disk))
 
+	if len(info.GPUs) > 1 {
+		b.WriteString("\n")
+		b.WriteString(renderAggregateGPUSection(info.GPUs))
+	}
+
 	if len(info.GPUs) > 0 {
 		b.WriteString("\n")
 		b.WriteString(renderGPUSection(info.GPUs))
@@ -462,6 +467,49 @@ func renderCPUSection(cpu CPUInfo) string {
 
 	cpuInfo := strings.Join(parts, "  |  ")
 	return headerStyle.Render("● CPU") + "  " + cpuInfo + "\n"
+}
+
+func renderAggregateGPUSection(gpus []GPUInfo) string {
+	var b strings.Builder
+
+	var totalVRAM, usedVRAM int
+	var totalUtil int
+	for _, gpu := range gpus {
+		totalVRAM += gpu.VRAMTotal
+		usedVRAM += gpu.VRAMUsed
+		totalUtil += gpu.Utilization
+	}
+
+	vramPercent := 0.0
+	if totalVRAM > 0 {
+		vramPercent = (float64(usedVRAM) / float64(totalVRAM)) * 100
+	}
+	avgUtil := 0.0
+	if len(gpus) > 0 {
+		avgUtil = float64(totalUtil) / float64(len(gpus))
+	}
+
+	totalVRAMGB := float64(totalVRAM) / 1024.0
+	usedVRAMGB := float64(usedVRAM) / 1024.0
+
+	b.WriteString(headerStyle.Render("● Total GPU Pressure"))
+	b.WriteString("\n\n")
+
+	const fullBarWidth = 106
+
+	vramLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Render("VRAM")
+	b.WriteString(fmt.Sprintf("  %s %.1f/%.1f GB (%.1f%%) across %d GPUs\n", vramLabel, usedVRAMGB, totalVRAMGB, vramPercent, len(gpus)))
+	b.WriteString("  ")
+	b.WriteString(renderProgressBar(vramPercent, fullBarWidth, lipgloss.Color("39")))
+	b.WriteString("\n")
+
+	utilLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Render("Util")
+	b.WriteString(fmt.Sprintf("  %s %.1f%% average\n", utilLabel, avgUtil))
+	b.WriteString("  ")
+	b.WriteString(renderProgressBar(avgUtil, fullBarWidth, lipgloss.Color("208")))
+	b.WriteString("\n")
+
+	return b.String()
 }
 
 func renderGPUSection(gpus []GPUInfo) string {
