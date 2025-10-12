@@ -113,6 +113,7 @@ The remote hosts should have these commands available:
 - `free` - RAM information
 - `df` - Disk usage
 - `nvidia-smi` - GPU information (NVIDIA GPUs only)
+- `amd-smi` or `rocm-smi` - GPU information (AMD GPUs only)
 
 Most Linux distributions include these by default.
 
@@ -163,8 +164,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - Ensure SSH keys are loaded: `ssh-add -l`
 
 ### Missing GPU Information
-- Verify NVIDIA drivers are installed: `ssh hostname nvidia-smi`
-- The tool currently only supports NVIDIA GPUs
+- (NVIDIA) Verify NVIDIA drivers are installed: `ssh hostname nvidia-smi`
+- (AMD) Verify AMD drivers are installed: `ssh hostname amd-smi` or `ssh hostname rocm-smi`
 
 ### Permission Denied
 - Check SSH key permissions (should be 600)
