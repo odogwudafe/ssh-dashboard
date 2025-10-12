@@ -16,7 +16,7 @@ Download the latest release for your platform from the [Releases page](https://g
 ```bash
 # Download the binary for your platform
 # Example for Linux AMD64:
-curl -L -o ssh-dashboard https://github.com/AlpinDale/ssh-dashboard/releases/download/v1.0.0/ssh-dashboard-v1.0.0-linux-amd64
+curl -L -o ssh-dashboard https://github.com/AlpinDale/ssh-dashboard/releases/download/v0.0.1/ssh-dashboard-v0.0.1-linux-amd64
 
 # Make it executable and move to PATH
 chmod +x ssh-dashboard
