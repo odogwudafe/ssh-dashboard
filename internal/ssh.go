@@ -96,14 +96,60 @@ func ParseSSHConfig(configPath string) ([]SSHHost, error) {
 }
 
 func expandPath(path string) string {
+	if path == "" {
+		return ""
+	}
+
+	path = filepath.Clean(path)
+
+	if strings.Contains(path, "..") {
+		return ""
+	}
+
 	if strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
+			return ""
+		}
+		expandedPath := filepath.Join(home, path[2:])
+
+		absHome, err := filepath.Abs(home)
+		if err != nil {
+			return ""
+		}
+		absPath, err := filepath.Abs(expandedPath)
+		if err != nil {
+			return ""
+		}
+
+		if !strings.HasPrefix(absPath, absHome) {
+			return ""
+		}
+
+		return expandedPath
+	}
+
+	if filepath.IsAbs(path) {
+		home, _ := os.UserHomeDir()
+		sshDir := filepath.Join(home, ".ssh")
+
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return ""
+		}
+
+		if strings.HasPrefix(absPath, sshDir) || strings.HasPrefix(absPath, "/etc/ssh") {
 			return path
 		}
-		return filepath.Join(home, path[2:])
+
+		return ""
 	}
-	return path
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".ssh", path)
 }
 
 func getHostKeyCallback() (ssh.HostKeyCallback, error) {
