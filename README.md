@@ -2,6 +2,10 @@
 
 Monitor CPU, GPU, RAM, and disk usage on your remote servers with a live-updating terminal dashboard.
 
+<div align="center">
+  <img src="assets/screenshot.png" alt="SSH Dashboard Screenshot" width="800">
+</div>
+
 ## Installation
 
 ### From Source
