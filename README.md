@@ -42,12 +42,6 @@ This will install to `~/.local/bin`. Make sure this directory is in your PATH (i
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Or use the install script which checks your PATH automatically:
-
-```bash
-./install.sh
-```
-
 ### Prerequisites
 
 - Go 1.21 or higher
