@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -26,6 +27,7 @@ type Model struct {
 	selectedHosts  []SSHHost
 	currentHostIdx int
 	list           list.Model
+	spinner        spinner.Model
 	clients        map[string]*SSHClient
 	sysInfos       map[string]*SystemInfo
 	updateCounts   map[string]int
@@ -112,10 +114,15 @@ func InitialModel(hosts []SSHHost) Model {
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(true)
 
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	return Model{
 		screen:       ScreenHostList,
 		hosts:        hosts,
 		list:         l,
+		spinner:      s,
 		clients:      make(map[string]*SSHClient),
 		sysInfos:     make(map[string]*SystemInfo),
 		updateCounts: make(map[string]int),
@@ -141,7 +148,7 @@ func (m *Model) updateListSelection() {
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return m.spinner.Tick
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -230,13 +237,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.gatherAllSysInfo(), m.tick())
 	}
 
+	var spinnerCmd tea.Cmd
+	m.spinner, spinnerCmd = m.spinner.Update(msg)
+
 	if m.screen == ScreenHostList {
-		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
-		return m, cmd
+		var listCmd tea.Cmd
+		m.list, listCmd = m.list.Update(msg)
+		return m, tea.Batch(spinnerCmd, listCmd)
 	}
 
-	return m, nil
+	return m, spinnerCmd
 }
 
 func (m Model) View() string {
@@ -254,29 +264,27 @@ func (m Model) View() string {
 		return listView
 
 	case ScreenConnecting:
-		return renderConnecting(len(m.selectedHosts))
+		return m.renderLoading("Connecting and gathering information...")
 
 	case ScreenDashboard:
 		if len(m.selectedHosts) > 0 && m.currentHostIdx < len(m.selectedHosts) {
 			currentHost := m.selectedHosts[m.currentHostIdx]
 
-			if m.clients[currentHost.Name] == nil {
-				return boxStyle.Render(fmt.Sprintf("Connecting to %s...\n\nPlease wait...", currentHost.Name))
+			if m.clients[currentHost.Name] == nil || m.sysInfos[currentHost.Name] == nil {
+				return m.renderLoading(fmt.Sprintf("Loading %s...", currentHost.Name))
 			}
 
 			sysInfo := m.sysInfos[currentHost.Name]
 			updateCount := m.updateCounts[currentHost.Name]
 			lastUpdate := m.lastUpdates[currentHost.Name]
 
-			if sysInfo != nil {
-				hostIndicator := ""
-				if len(m.selectedHosts) > 1 {
-					hostIndicator = fmt.Sprintf(" [%d/%d]", m.currentHostIdx+1, len(m.selectedHosts))
-				}
-				return renderDashboard(currentHost.Name+hostIndicator, sysInfo, updateCount, lastUpdate, m.width, m.height, len(m.selectedHosts) > 1)
+			hostIndicator := ""
+			if len(m.selectedHosts) > 1 {
+				hostIndicator = fmt.Sprintf(" [%d/%d]", m.currentHostIdx+1, len(m.selectedHosts))
 			}
+			return renderDashboard(currentHost.Name+hostIndicator, sysInfo, updateCount, lastUpdate, m.width, m.height, len(m.selectedHosts) > 1)
 		}
-		return "Loading system information..."
+		return m.renderLoading("Initializing...")
 
 	case ScreenError:
 		return renderError(m.err)
@@ -373,11 +381,8 @@ func renderProgressBar(percent float64, width int, color lipgloss.Color) string 
 	return bar
 }
 
-func renderConnecting(numHosts int) string {
-	if numHosts == 1 {
-		return boxStyle.Render("Connecting to host...\n\nPlease wait...")
-	}
-	return boxStyle.Render(fmt.Sprintf("Connecting to %d hosts...\n\nPlease wait...", numHosts))
+func (m Model) renderLoading(message string) string {
+	return boxStyle.Render(fmt.Sprintf("%s %s", m.spinner.View(), message))
 }
 
 func renderError(err error) string {
