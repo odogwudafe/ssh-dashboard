@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"fmt"
@@ -208,6 +208,26 @@ var (
 			Padding(1, 2)
 )
 
+func renderProgressBar(percent float64, width int, color lipgloss.Color) string {
+	if percent > 100 {
+		percent = 100
+	}
+	if percent < 0 {
+		percent = 0
+	}
+
+	filled := int(float64(width) * percent / 100.0)
+	empty := width - filled
+
+	filledStyle := lipgloss.NewStyle().Foreground(color)
+	emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
+	bar := filledStyle.Render(strings.Repeat("█", filled)) +
+		emptyStyle.Render(strings.Repeat("░", empty))
+
+	return bar
+}
+
 func renderConnecting(hostName string) string {
 	return boxStyle.Render(fmt.Sprintf("Connecting to %s...\n\nPlease wait...", hostName))
 }
@@ -265,15 +285,7 @@ func renderGPUSection(gpus []GPUInfo) string {
 	var b strings.Builder
 
 	b.WriteString(headerStyle.Render("● GPU Information"))
-	b.WriteString("\n")
-
-	b.WriteString(fmt.Sprintf("  %-6s  %-30s  %12s  %12s  %10s  %8s\n",
-		tableHeaderStyle.Render("GPU"),
-		tableHeaderStyle.Render("Name"),
-		tableHeaderStyle.Render("VRAM Total"),
-		tableHeaderStyle.Render("VRAM Used"),
-		tableHeaderStyle.Render("VRAM %"),
-		tableHeaderStyle.Render("GPU %")))
+	b.WriteString("\n\n")
 
 	for _, gpu := range gpus {
 		vramTotalGB := float64(gpu.VRAMTotal) / 1024.0
@@ -283,13 +295,28 @@ func renderGPUSection(gpus []GPUInfo) string {
 			vramPercent = (float64(gpu.VRAMUsed) / float64(gpu.VRAMTotal)) * 100
 		}
 
-		b.WriteString(fmt.Sprintf("  %-6s  %-30s  %10.1f GB  %10.1f GB  %9.1f%%  %7d%%\n",
-			fmt.Sprintf("GPU %s", gpu.Index),
-			gpu.Name,
-			vramTotalGB,
-			vramUsedGB,
-			vramPercent,
-			gpu.Utilization))
+		gpuTitle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("12")).
+			Render(fmt.Sprintf("GPU %s", gpu.Index))
+
+		gpuName := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			Render(gpu.Name)
+
+		b.WriteString(fmt.Sprintf("  %s  %s\n", gpuTitle, gpuName))
+
+		vramLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Render("VRAM")
+		b.WriteString(fmt.Sprintf("  %s %.1f GB / %.1f GB (%.1f%%)\n", vramLabel, vramUsedGB, vramTotalGB, vramPercent))
+		b.WriteString("  ")
+		b.WriteString(renderProgressBar(vramPercent, 60, lipgloss.Color("39")))
+		b.WriteString("\n")
+
+		utilLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Render("Util")
+		b.WriteString(fmt.Sprintf("  %s %d%%\n", utilLabel, gpu.Utilization))
+		b.WriteString("  ")
+		b.WriteString(renderProgressBar(float64(gpu.Utilization), 60, lipgloss.Color("208")))
+		b.WriteString("\n\n")
 	}
 
 	return b.String()
@@ -304,9 +331,10 @@ func renderRAMSection(ram RAMInfo) string {
 	totalGB := float64(ram.Total) / 1024.0
 	usedGB := float64(ram.Used) / 1024.0
 
-	b.WriteString(fmt.Sprintf("  Total:  %.1f GB\n", totalGB))
-	b.WriteString(fmt.Sprintf("  Used:   %.1f GB\n", usedGB))
-	b.WriteString(fmt.Sprintf("  Usage:  %.1f%%\n", ram.UsagePercent))
+	b.WriteString(fmt.Sprintf("  %.1f GB / %.1f GB (%.1f%%)\n", usedGB, totalGB, ram.UsagePercent))
+	b.WriteString("  ")
+	b.WriteString(renderProgressBar(ram.UsagePercent, 60, lipgloss.Color("10")))
+	b.WriteString("\n")
 
 	return b.String()
 }

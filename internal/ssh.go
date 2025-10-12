@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"bufio"
@@ -176,14 +176,10 @@ func NewSSHClient(host SSHHost) (*SSHClient, error) {
 	}
 
 	addr := fmt.Sprintf("%s:%s", host.Hostname, host.Port)
-	fmt.Fprintf(os.Stderr, "[DEBUG] Connecting to %s as user %s\n", addr, host.User)
 	client, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG] Connection failed: %v\n", err)
 		return nil, fmt.Errorf("failed to connect to %s: %w", addr, err)
 	}
-
-	fmt.Fprintf(os.Stderr, "[DEBUG] Connection successful!\n")
 
 	return &SSHClient{
 		client: client,

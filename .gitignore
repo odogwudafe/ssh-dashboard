@@ -1,5 +1,6 @@
-# Go
-ssh-dashboard
+# Binaries
+/ssh-dashboard
+/ssh-dashboard-*
 test_ssh
 *.exe
 *.exe~
