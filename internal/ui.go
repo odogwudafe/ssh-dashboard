@@ -30,8 +30,8 @@ type Model struct {
 	spinner        spinner.Model
 	clients        map[string]*SSHClient
 	sysInfos       map[string]*SystemInfo
-	updateCounts   map[string]int
 	lastUpdates    map[string]time.Time
+	updateInterval time.Duration
 	err            error
 	width          int
 	height         int
@@ -102,7 +102,7 @@ func censorHostname(hostname string) string {
 	return hostname[:3] + strings.Repeat("*", 5) + hostname[len(hostname)-3:]
 }
 
-func InitialModel(hosts []SSHHost) Model {
+func InitialModel(hosts []SSHHost, updateInterval time.Duration) Model {
 	items := make([]list.Item, len(hosts))
 	for i, h := range hosts {
 		items[i] = hostItem{host: h, selected: false}
@@ -119,14 +119,14 @@ func InitialModel(hosts []SSHHost) Model {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
 	return Model{
-		screen:       ScreenHostList,
-		hosts:        hosts,
-		list:         l,
-		spinner:      s,
-		clients:      make(map[string]*SSHClient),
-		sysInfos:     make(map[string]*SystemInfo),
-		updateCounts: make(map[string]int),
-		lastUpdates:  make(map[string]time.Time),
+		screen:         ScreenHostList,
+		hosts:          hosts,
+		list:           l,
+		spinner:        s,
+		clients:        make(map[string]*SSHClient),
+		sysInfos:       make(map[string]*SystemInfo),
+		lastUpdates:    make(map[string]time.Time),
+		updateInterval: updateInterval,
 	}
 }
 
@@ -229,7 +229,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.sysInfos[msg.hostName] = msg.info
-		m.updateCounts[msg.hostName]++
 		m.lastUpdates[msg.hostName] = time.Now()
 
 	case TickMsg:
@@ -275,14 +274,13 @@ func (m Model) View() string {
 			}
 
 			sysInfo := m.sysInfos[currentHost.Name]
-			updateCount := m.updateCounts[currentHost.Name]
 			lastUpdate := m.lastUpdates[currentHost.Name]
 
 			hostIndicator := ""
 			if len(m.selectedHosts) > 1 {
 				hostIndicator = fmt.Sprintf(" [%d/%d]", m.currentHostIdx+1, len(m.selectedHosts))
 			}
-			return renderDashboard(currentHost.Name+hostIndicator, sysInfo, updateCount, lastUpdate, m.width, m.height, len(m.selectedHosts) > 1)
+			return renderDashboard(currentHost.Name+hostIndicator, sysInfo, m.updateInterval, lastUpdate, m.width, m.height, len(m.selectedHosts) > 1)
 		}
 		return m.renderLoading("Initializing...")
 
@@ -334,7 +332,7 @@ func (m Model) gatherSysInfoForHost(hostName string) tea.Cmd {
 }
 
 func (m Model) tick() tea.Cmd {
-	return tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(m.updateInterval, func(t time.Time) tea.Msg {
 		return TickMsg(t)
 	})
 }
@@ -389,7 +387,7 @@ func renderError(err error) string {
 	return errorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'q' to quit", err))
 }
 
-func renderDashboard(hostName string, info *SystemInfo, updateCount int, lastUpdate time.Time, width, height int, multiHost bool) string {
+func renderDashboard(hostName string, info *SystemInfo, updateInterval time.Duration, lastUpdate time.Time, width, height int, multiHost bool) string {
 	var b strings.Builder
 
 	title := fmt.Sprintf("  System Dashboard - %s  ", hostName)
@@ -397,8 +395,8 @@ func renderDashboard(hostName string, info *SystemInfo, updateCount int, lastUpd
 	if multiHost {
 		navHint = " | Press 'n' for next host"
 	}
-	subtitle := fmt.Sprintf("Last Updated: %s | Updates: %d%s | Press 'q' to quit",
-		lastUpdate.Format("15:04:05"), updateCount, navHint)
+	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %.0fs%s | Press 'q' to quit",
+		lastUpdate.Format("15:04:05"), updateInterval.Seconds(), navHint)
 
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")

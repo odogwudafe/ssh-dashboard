@@ -42,9 +42,27 @@ The tool will:
 1. Scan your `~/.ssh/config` for available hosts
 2. Present an interactive list to select from
 3. Connect and display a live dashboard
-4. Update stats every 10 seconds
+4. Update stats every 10 seconds (configurable)
 
-Press `q` or `Ctrl+C` to quit.
+### Configuration
+
+**Update Interval:**
+
+Control how often the dashboard refreshes (default: 10 seconds):
+
+```bash
+ssh-dashboard -interval 5
+
+# or with an env var
+export SSH_DASHBOARD_INTERVAL=5
+ssh-dashboard
+```
+
+**Keybindings:**
+- `q` or `Ctrl+C` - Quit
+- `Space` - Select/deselect hosts (in host selection screen)
+- `Enter` - Connect to selected host(s)
+- `n` - Switch to next host (when multiple hosts selected)
 
 ## SSH Configuration
 
