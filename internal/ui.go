@@ -174,9 +174,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "enter":
-			if m.screen == ScreenHostList && len(m.selectedHosts) > 0 {
-				m.screen = ScreenConnecting
-				return m, m.connectToHosts()
+			if m.screen == ScreenHostList {
+				if len(m.selectedHosts) == 0 {
+					if item, ok := m.list.SelectedItem().(hostItem); ok {
+						m.selectedHosts = append(m.selectedHosts, item.host)
+					}
+				}
+				if len(m.selectedHosts) > 0 {
+					m.screen = ScreenConnecting
+					return m, m.connectToHosts()
+				}
 			}
 		case "n":
 			if m.screen == ScreenDashboard && len(m.selectedHosts) > 1 {
