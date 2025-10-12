@@ -19,8 +19,19 @@ func validateInterval(seconds int) time.Duration {
 }
 
 func main() {
-	updateInterval := flag.Int("interval", 0, "Update interval in seconds (default: 5, or SSH_DASHBOARD_INTERVAL env var)")
+	flag.Usage = func() {
+		// HACK: make it look like python's argparse
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		fmt.Fprintf(os.Stderr, "  -n, --interval int    Update interval in seconds (default: 5, or SSH_DASHBOARD_INTERVAL env var)\n")
+		fmt.Fprintf(os.Stderr, "  -h, --help            Show this help message\n")
+	}
+
+	var updateIntervalVal int
+	flag.IntVar(&updateIntervalVal, "n", 0, "")
+	flag.IntVar(&updateIntervalVal, "interval", 0, "")
 	flag.Parse()
+	updateInterval := &updateIntervalVal
 
 	interval := 5 * time.Second
 
