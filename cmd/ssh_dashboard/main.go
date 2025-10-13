@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alpindale/ssh-dashboard/internal"
+	"github.com/alpindale/ssh-dashboard/internal/ui"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -60,7 +61,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	initialModel := internal.InitialModel(hosts, interval)
+	initialModel := ui.InitialModel(hosts, interval)
 	p := tea.NewProgram(initialModel, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
@@ -68,7 +69,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if m, ok := finalModel.(internal.Model); ok {
+	if m, ok := finalModel.(ui.Model); ok {
 		if sshHost := m.GetSSHOnExit(); sshHost != "" {
 			sshPath, err := exec.LookPath("ssh")
 			if err != nil {
