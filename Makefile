@@ -29,6 +29,7 @@ install: build
 	@mkdir -p ${INSTALL_PATH}
 	@cp ${BINARY_NAME} ${INSTALL_PATH}/
 	@chmod +x ${INSTALL_PATH}/${BINARY_NAME}
+	@rm -f ${BINARY_NAME}
 	@echo "Installed!"
 	@echo ""
 	@echo "Make sure ${INSTALL_PATH} is in your PATH"
