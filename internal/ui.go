@@ -19,7 +19,6 @@ const (
 	ScreenConnecting
 	ScreenDashboard
 	ScreenOverview
-	ScreenError
 )
 
 type Model struct {
@@ -33,7 +32,7 @@ type Model struct {
 	sysInfos       map[string]*SystemInfo
 	lastUpdates    map[string]time.Time
 	updateInterval time.Duration
-	err            error
+	failedHosts    map[string]error
 	width          int
 	height         int
 	sshOnExit      string
@@ -138,6 +137,7 @@ func InitialModel(hosts []SSHHost, updateInterval time.Duration) Model {
 		clients:        make(map[string]*SSHClient),
 		sysInfos:       make(map[string]*SystemInfo),
 		lastUpdates:    make(map[string]time.Time),
+		failedHosts:    make(map[string]error),
 		updateInterval: updateInterval,
 	}
 }
@@ -204,6 +204,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				if len(m.selectedHosts) > 0 {
+					m.failedHosts = make(map[string]error)
+
 					hasConnections := len(m.clients) > 0
 
 					if hasConnections {
@@ -259,8 +261,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ConnectedMsg:
 		if msg.err != nil {
-			m.err = fmt.Errorf("failed to connect to %s: %w", msg.hostName, msg.err)
-			m.screen = ScreenError
+			m.failedHosts[msg.hostName] = msg.err
+
+			for i, h := range m.selectedHosts {
+				if h.Name == msg.hostName {
+					m.selectedHosts = append(m.selectedHosts[:i], m.selectedHosts[i+1:]...)
+					break
+				}
+			}
+
+			if len(m.selectedHosts) == 0 {
+				m.screen = ScreenHostList
+				m.updateListSelection()
+			} else {
+				if m.currentHostIdx >= len(m.selectedHosts) {
+					m.currentHostIdx = len(m.selectedHosts) - 1
+				}
+			}
 			return m, nil
 		}
 		m.clients[msg.hostName] = msg.client
@@ -309,6 +326,14 @@ func (m Model) View() string {
 	switch m.screen {
 	case ScreenHostList:
 		listView := m.list.View()
+		if len(m.failedHosts) > 0 {
+			failedNames := make([]string, 0, len(m.failedHosts))
+			for hostName := range m.failedHosts {
+				failedNames = append(failedNames, hostName)
+			}
+			warning := fmt.Sprintf("\n⚠ Failed to connect: %s", strings.Join(failedNames, ", "))
+			listView += lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Render(warning)
+		}
 		if len(m.selectedHosts) > 0 {
 			selectedNames := make([]string, len(m.selectedHosts))
 			for i, h := range m.selectedHosts {
@@ -343,9 +368,6 @@ func (m Model) View() string {
 
 	case ScreenOverview:
 		return m.renderOverview()
-
-	case ScreenError:
-		return renderError(m.err)
 	}
 
 	return ""
@@ -433,11 +455,6 @@ var (
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("63"))
-
-	errorStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("196")).
-			Padding(1, 2)
 )
 
 func renderProgressBar(percent float64, width int, color lipgloss.Color) string {
@@ -511,10 +528,6 @@ func (m Model) renderConnectingProgress() string {
 	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Please wait..."))
 
 	return b.String()
-}
-
-func renderError(err error) string {
-	return errorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'q' to quit", err))
 }
 
 func (m Model) renderOverview() string {
