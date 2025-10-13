@@ -67,6 +67,7 @@ The tool will:
 - Press `Enter` to connect and view the dashboard
 - While in the dashboard, press `c` to return to host selection to add/remove hosts
 - Press `n` to cycle through connected hosts (like tmux sessions)
+- Press `t` to toggle overview mode, showing all selected hosts at once with GPU pressure summaries
 - All connections remain active - no need to reconnect!
 
 ### Configuration
@@ -88,6 +89,7 @@ ssh-dashboard
 - `Space` - Select/deselect hosts (in host selection screen)
 - `Enter` - Connect to selected host(s)
 - `n` - Switch to next host (when multiple hosts selected)
+- `t` - Toggle overview screen (shows all hosts at once)
 - `c` - Add hosts (from dashboard, returns to host selection)
 
 ## SSH Configuration

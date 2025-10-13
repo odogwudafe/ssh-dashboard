@@ -18,6 +18,7 @@ const (
 	ScreenHostList Screen = iota
 	ScreenConnecting
 	ScreenDashboard
+	ScreenOverview
 	ScreenError
 )
 
@@ -211,9 +212,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "c":
-			if m.screen == ScreenDashboard {
+			if m.screen == ScreenDashboard || m.screen == ScreenOverview {
 				m.screen = ScreenHostList
 				m.updateListSelection()
+			}
+		case "t":
+			if m.screen == ScreenDashboard && len(m.selectedHosts) > 1 {
+				m.screen = ScreenOverview
+			} else if m.screen == ScreenOverview {
+				m.screen = ScreenDashboard
 			}
 		}
 
@@ -298,6 +305,9 @@ func (m Model) View() string {
 			return renderDashboard(currentHost.Name+hostIndicator, sysInfo, m.updateInterval, lastUpdate, m.width, m.height, len(m.selectedHosts) > 1)
 		}
 		return m.renderLoading("Initializing...")
+
+	case ScreenOverview:
+		return m.renderOverview()
 
 	case ScreenError:
 		return renderError(m.err)
@@ -420,13 +430,122 @@ func renderError(err error) string {
 	return errorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'q' to quit", err))
 }
 
+func (m Model) renderOverview() string {
+	var b strings.Builder
+
+	title := fmt.Sprintf("  Overview - All Hosts (%d)  ", len(m.selectedHosts))
+	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %.0fs | 't' per-host | 'c' add hosts | 'q' quit",
+		time.Now().Format("15:04:05"), m.updateInterval.Seconds())
+
+	b.WriteString(titleStyle.Render(title))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(subtitle))
+	b.WriteString("\n\n")
+
+	for i := 0; i < len(m.selectedHosts); i += 2 {
+		var leftHost, rightHost string
+
+		leftHost = m.renderSingleHostOverview(m.selectedHosts[i])
+
+		if i+1 < len(m.selectedHosts) {
+			rightHost = m.renderSingleHostOverview(m.selectedHosts[i+1])
+			row := lipgloss.JoinHorizontal(lipgloss.Top, leftHost, "    ", rightHost)
+			b.WriteString(row)
+		} else {
+			b.WriteString(leftHost)
+		}
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+func (m Model) renderSingleHostOverview(host SSHHost) string {
+	var b strings.Builder
+
+	sysInfo := m.sysInfos[host.Name]
+
+	if sysInfo == nil {
+		b.WriteString(headerStyle.Render(fmt.Sprintf("● %s", host.Name)))
+		b.WriteString("  ")
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Loading..."))
+		b.WriteString("\n")
+		return b.String()
+	}
+
+	b.WriteString(headerStyle.Render(fmt.Sprintf("● %s", host.Name)))
+	b.WriteString("\n")
+
+	cpuUsage := sysInfo.CPU.Usage
+	if cpuUsage == "" {
+		cpuUsage = "N/A"
+	}
+	b.WriteString(fmt.Sprintf("  CPU: %s", cpuUsage))
+	b.WriteString("\n")
+
+	if sysInfo.RAM.Total > 0 {
+		b.WriteString(fmt.Sprintf("  RAM: %.1f / %.1f GB (%.0f%%)",
+			float64(sysInfo.RAM.Used)/1024,
+			float64(sysInfo.RAM.Total)/1024,
+			sysInfo.RAM.UsagePercent))
+	} else {
+		b.WriteString("  RAM: N/A")
+	}
+	b.WriteString("\n")
+
+	if len(sysInfo.Disk) > 0 {
+		disk := sysInfo.Disk[0]
+		b.WriteString(fmt.Sprintf("  Disk: %s / %s (%s)", disk.Used, disk.Size, disk.UsagePercent))
+	} else {
+		b.WriteString("  Disk: N/A")
+	}
+	b.WriteString("\n")
+
+	if len(sysInfo.GPUs) > 0 {
+		var totalVRAM, usedVRAM int
+		var totalUtil int
+		for _, gpu := range sysInfo.GPUs {
+			totalVRAM += gpu.VRAMTotal
+			usedVRAM += gpu.VRAMUsed
+			totalUtil += gpu.Utilization
+		}
+
+		vramPercent := 0.0
+		if totalVRAM > 0 {
+			vramPercent = (float64(usedVRAM) / float64(totalVRAM)) * 100
+		}
+
+		avgUtil := 0
+		if len(sysInfo.GPUs) > 0 {
+			avgUtil = totalUtil / len(sysInfo.GPUs)
+		}
+
+		barWidth := 50
+		vramBar := renderProgressBar(vramPercent, barWidth, lipgloss.Color("33"))
+		utilBar := renderProgressBar(float64(avgUtil), barWidth, lipgloss.Color("208"))
+
+		b.WriteString(fmt.Sprintf("  GPU VRAM: %.1f / %.1f GB (%.0f%%)\n", float64(usedVRAM)/1024, float64(totalVRAM)/1024, vramPercent))
+		b.WriteString("  " + vramBar + "\n")
+		b.WriteString(fmt.Sprintf("  GPU Util: %d%% avg\n", avgUtil))
+		b.WriteString("  " + utilBar + "\n")
+	} else {
+		paddingLine := strings.Repeat(" ", 52)
+		b.WriteString("  GPU: N/A\n")
+		b.WriteString(paddingLine + "\n")
+		b.WriteString(paddingLine + "\n")
+		b.WriteString(paddingLine + "\n")
+	}
+
+	return b.String()
+}
+
 func renderDashboard(hostName string, info *SystemInfo, updateInterval time.Duration, lastUpdate time.Time, width, height int, multiHost bool) string {
 	var b strings.Builder
 
 	title := fmt.Sprintf("  System Dashboard - %s  ", hostName)
 	navHint := ""
 	if multiHost {
-		navHint = " | 'n' next"
+		navHint = " | 'n' next | 't' overview"
 	}
 	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %.0fs%s | 'c' add hosts | 'q' quit",
 		lastUpdate.Format("15:04:05"), updateInterval.Seconds(), navHint)
