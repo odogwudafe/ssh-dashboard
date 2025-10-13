@@ -103,6 +103,16 @@ func censorHostname(hostname string) string {
 	return hostname[:3] + strings.Repeat("*", 5) + hostname[len(hostname)-3:]
 }
 
+func formatInterval(interval time.Duration) string {
+	seconds := interval.Seconds()
+	if seconds < 1 {
+		return fmt.Sprintf("%.2fs", seconds)
+	} else if seconds < 10 {
+		return fmt.Sprintf("%.1fs", seconds)
+	}
+	return fmt.Sprintf("%.0fs", seconds)
+}
+
 func InitialModel(hosts []SSHHost, updateInterval time.Duration) Model {
 	items := make([]list.Item, len(hosts))
 	for i, h := range hosts {
@@ -502,8 +512,8 @@ func (m Model) renderOverview() string {
 	var b strings.Builder
 
 	title := fmt.Sprintf("  Overview - All Hosts (%d)  ", len(m.selectedHosts))
-	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %.0fs | 't' per-host | 'c' add hosts | 'q' quit",
-		time.Now().Format("15:04:05"), m.updateInterval.Seconds())
+	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %s | 't' per-host | 'c' add hosts | 'q' quit",
+		time.Now().Format("15:04:05"), formatInterval(m.updateInterval))
 
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")
@@ -615,8 +625,8 @@ func renderDashboard(hostName string, info *SystemInfo, updateInterval time.Dura
 	if multiHost {
 		navHint = " | 'n' next | 't' overview"
 	}
-	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %.0fs%s | 'c' add hosts | 'q' quit",
-		lastUpdate.Format("15:04:05"), updateInterval.Seconds(), navHint)
+	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %s%s | 'c' add hosts | 'q' quit",
+		lastUpdate.Format("15:04:05"), formatInterval(updateInterval), navHint)
 
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")

@@ -11,11 +11,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func validateInterval(seconds int) time.Duration {
-	if seconds < 1 || seconds > 3600 {
+func validateInterval(seconds float64) time.Duration {
+	if seconds < 0.01 || seconds > 3600 {
 		return 0
 	}
-	return time.Duration(seconds) * time.Second
+	return time.Duration(seconds * float64(time.Second))
 }
 
 func main() {
@@ -23,13 +23,13 @@ func main() {
 		// HACK: make it look like python's argparse
 		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
-		fmt.Fprintf(os.Stderr, "  -n, --interval int    Update interval in seconds (default: 5, or SSH_DASHBOARD_INTERVAL env var)\n")
+		fmt.Fprintf(os.Stderr, "  -n, --interval float  Update interval in seconds (default: 5, or SSH_DASHBOARD_INTERVAL env var)\n")
 		fmt.Fprintf(os.Stderr, "  -h, --help            Show this help message\n")
 	}
 
-	var updateIntervalVal int
-	flag.IntVar(&updateIntervalVal, "n", 0, "")
-	flag.IntVar(&updateIntervalVal, "interval", 0, "")
+	var updateIntervalVal float64
+	flag.Float64Var(&updateIntervalVal, "n", 0, "")
+	flag.Float64Var(&updateIntervalVal, "interval", 0, "")
 	flag.Parse()
 	updateInterval := &updateIntervalVal
 
@@ -40,7 +40,7 @@ func main() {
 			interval = validated
 		}
 	} else if envInterval := os.Getenv("SSH_DASHBOARD_INTERVAL"); envInterval != "" {
-		if seconds, err := strconv.Atoi(envInterval); err == nil {
+		if seconds, err := strconv.ParseFloat(envInterval, 64); err == nil {
 			if validated := validateInterval(seconds); validated > 0 {
 				interval = validated
 			}
