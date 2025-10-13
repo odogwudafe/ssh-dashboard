@@ -327,7 +327,7 @@ func (m Model) View() string {
 			currentHost := m.selectedHosts[m.currentHostIdx]
 
 			if m.clients[currentHost.Name] == nil || m.sysInfos[currentHost.Name] == nil {
-				return m.renderLoading(fmt.Sprintf("Loading %s...", currentHost.Name))
+				return m.renderConnectingProgress()
 			}
 
 			sysInfo := m.sysInfos[currentHost.Name]
@@ -339,7 +339,7 @@ func (m Model) View() string {
 			}
 			return renderDashboard(currentHost.Name+hostIndicator, sysInfo, m.updateInterval, lastUpdate, m.width, m.height, len(m.selectedHosts) > 1)
 		}
-		return m.renderLoading("Initializing...")
+		return m.renderConnectingProgress()
 
 	case ScreenOverview:
 		return m.renderOverview()
@@ -438,11 +438,6 @@ var (
 			Bold(true).
 			Foreground(lipgloss.Color("196")).
 			Padding(1, 2)
-
-	boxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("63")).
-			Padding(1, 2)
 )
 
 func renderProgressBar(percent float64, width int, color lipgloss.Color) string {
@@ -465,17 +460,13 @@ func renderProgressBar(percent float64, width int, color lipgloss.Color) string 
 	return bar
 }
 
-func (m Model) renderLoading(message string) string {
-	return boxStyle.Render(fmt.Sprintf("%s %s", m.spinner.View(), message))
-}
-
 func (m Model) renderConnectingProgress() string {
 	var b strings.Builder
 
 	title := "  System Dashboard - Connecting  "
 	connectedCount := len(m.clients)
 	totalCount := len(m.selectedHosts)
-	subtitle := fmt.Sprintf("Connecting to %d host(s) in parallel... (%d/%d ready)", totalCount, connectedCount, totalCount)
+	subtitle := fmt.Sprintf("Connecting to %d host(s)... (%d/%d ready)", totalCount, connectedCount, totalCount)
 
 	b.WriteString(titleStyle.Render(title))
 	b.WriteString("\n")
