@@ -36,6 +36,21 @@ func ParseSSHConfig(configPath string) ([]SSHHost, error) {
 		configPath = filepath.Join(home, ".ssh", "config")
 	}
 
+	visited := make(map[string]bool)
+	return parseSSHConfigRecursive(configPath, visited)
+}
+
+func parseSSHConfigRecursive(configPath string, visited map[string]bool) ([]SSHHost, error) {
+	absPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if visited[absPath] {
+		return nil, nil
+	}
+	visited[absPath] = true
+
 	file, err := os.Open(configPath)
 	if err != nil {
 		return nil, err
@@ -60,6 +75,29 @@ func ParseSSHConfig(configPath string) ([]SSHHost, error) {
 
 		key := strings.ToLower(parts[0])
 		value := strings.Join(parts[1:], " ")
+
+		if key == "include" {
+			includePath := expandPath(value)
+
+			if !filepath.IsAbs(includePath) {
+				configDir := filepath.Dir(configPath)
+				includePath = filepath.Join(configDir, includePath)
+			}
+
+			matches, err := filepath.Glob(includePath)
+			if err != nil {
+				continue
+			}
+
+			for _, match := range matches {
+				includedHosts, err := parseSSHConfigRecursive(match, visited)
+				if err != nil {
+					continue
+				}
+				hosts = append(hosts, includedHosts...)
+			}
+			continue
+		}
 
 		if key == "host" {
 			if currentHost != nil && !strings.Contains(currentHost.Name, "*") && !strings.Contains(currentHost.Name, "?") {
