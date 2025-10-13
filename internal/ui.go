@@ -237,9 +237,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.clients[msg.hostName] = msg.client
 
-		if m.screen == ScreenConnecting && len(m.clients) == 1 {
-			m.screen = ScreenDashboard
-			return m, tea.Batch(m.gatherAllSysInfo(), m.tick())
+		if m.screen == ScreenConnecting {
+			return m, m.gatherSysInfoForHost(msg.hostName)
 		}
 
 		if m.screen == ScreenDashboard || m.screen == ScreenOverview {
@@ -252,6 +251,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.sysInfos[msg.hostName] = msg.info
 		m.lastUpdates[msg.hostName] = time.Now()
+
+		if m.screen == ScreenConnecting && len(m.selectedHosts) > 0 {
+			firstHost := m.selectedHosts[0]
+			if m.clients[firstHost.Name] != nil && m.sysInfos[firstHost.Name] != nil {
+				m.screen = ScreenDashboard
+				return m, m.tick()
+			}
+		}
 
 	case TickMsg:
 		// update every 10 seconds
@@ -285,11 +292,7 @@ func (m Model) View() string {
 		return listView
 
 	case ScreenConnecting:
-		msg := "Connecting and gathering information..."
-		if len(m.selectedHosts) > 1 {
-			msg = fmt.Sprintf("Connecting to %d hosts in parallel...", len(m.selectedHosts))
-		}
-		return m.renderLoading(msg)
+		return m.renderConnectingProgress()
 
 	case ScreenDashboard:
 		if len(m.selectedHosts) > 0 && m.currentHostIdx < len(m.selectedHosts) {
@@ -436,6 +439,51 @@ func renderProgressBar(percent float64, width int, color lipgloss.Color) string 
 
 func (m Model) renderLoading(message string) string {
 	return boxStyle.Render(fmt.Sprintf("%s %s", m.spinner.View(), message))
+}
+
+func (m Model) renderConnectingProgress() string {
+	var b strings.Builder
+
+	title := "  System Dashboard - Connecting  "
+	connectedCount := len(m.clients)
+	totalCount := len(m.selectedHosts)
+	subtitle := fmt.Sprintf("Connecting to %d host(s) in parallel... (%d/%d ready)", totalCount, connectedCount, totalCount)
+
+	b.WriteString(titleStyle.Render(title))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(subtitle))
+	b.WriteString("\n\n")
+
+	for _, host := range m.selectedHosts {
+		client := m.clients[host.Name]
+		sysInfo := m.sysInfos[host.Name]
+
+		statusIcon := m.spinner.View()
+		statusText := "Connecting..."
+		statusColor := lipgloss.Color("240")
+
+		if client != nil {
+			if sysInfo != nil {
+				statusIcon = "✓"
+				statusText = "Ready"
+				statusColor = lipgloss.Color("10")
+			} else {
+				statusIcon = m.spinner.View()
+				statusText = "Gathering information..."
+				statusColor = lipgloss.Color("11")
+			}
+		}
+
+		hostName := headerStyle.Render("● " + host.Name)
+		status := lipgloss.NewStyle().Foreground(statusColor).Render(fmt.Sprintf("%s %s", statusIcon, statusText))
+
+		b.WriteString(fmt.Sprintf("  %s  %s\n", hostName, status))
+	}
+
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Please wait..."))
+
+	return b.String()
 }
 
 func renderError(err error) string {
