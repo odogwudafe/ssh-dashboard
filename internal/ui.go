@@ -36,6 +36,7 @@ type Model struct {
 	err            error
 	width          int
 	height         int
+	sshOnExit      string
 }
 
 type TickMsg time.Time
@@ -141,6 +142,10 @@ func InitialModel(hosts []SSHHost, updateInterval time.Duration) Model {
 	}
 }
 
+func (m Model) GetSSHOnExit() string {
+	return m.sshOnExit
+}
+
 func (m *Model) updateListSelection() {
 	items := m.list.Items()
 	selectedMap := make(map[string]bool)
@@ -231,6 +236,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.screen = ScreenOverview
 			} else if m.screen == ScreenOverview {
 				m.screen = ScreenDashboard
+			}
+		case "s":
+			if m.screen == ScreenDashboard {
+				if len(m.selectedHosts) > 0 {
+					currentHost := m.selectedHosts[m.currentHostIdx]
+					m.sshOnExit = currentHost.Name
+					for _, client := range m.clients {
+						if client != nil {
+							client.Close()
+						}
+					}
+					return m, tea.Quit
+				}
 			}
 		}
 
@@ -625,7 +643,7 @@ func renderDashboard(hostName string, info *SystemInfo, updateInterval time.Dura
 	if multiHost {
 		navHint = " | 'n' next | 't' overview"
 	}
-	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %s%s | 'c' add hosts | 'q' quit",
+	subtitle := fmt.Sprintf("Last Updated: %s | Interval: %s%s | 's' shell | 'c' add hosts | 'q' quit",
 		lastUpdate.Format("15:04:05"), formatInterval(updateInterval), navHint)
 
 	b.WriteString(titleStyle.Render(title))

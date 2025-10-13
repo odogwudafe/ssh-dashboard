@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/alpindale/ssh-dashboard/internal"
@@ -58,9 +60,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	p := tea.NewProgram(internal.InitialModel(hosts, interval), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
+	initialModel := internal.InitialModel(hosts, interval)
+	p := tea.NewProgram(initialModel, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error running program: %v\n", err)
 		os.Exit(1)
+	}
+
+	if m, ok := finalModel.(internal.Model); ok {
+		if sshHost := m.GetSSHOnExit(); sshHost != "" {
+			sshPath, err := exec.LookPath("ssh")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error finding ssh: %v\n", err)
+				os.Exit(1)
+			}
+
+			args := []string{"ssh", sshHost}
+			env := os.Environ()
+
+			err = syscall.Exec(sshPath, args, env)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error executing ssh: %v\n", err)
+				os.Exit(1)
+			}
+		}
 	}
 }

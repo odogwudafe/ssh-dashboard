@@ -68,19 +68,24 @@ The tool will:
 - While in the dashboard, press `c` to return to host selection to add/remove hosts
 - Press `n` to cycle through connected hosts (like tmux sessions)
 - Press `t` to toggle overview mode, showing all selected hosts at once with GPU pressure summaries
+- Press `s` to exit the dashboard and drop into an interactive SSH shell with the current host
 - All connections remain active - no need to reconnect!
 
 ### Configuration
 
 **Update Interval:**
 
-Control how often the dashboard refreshes (default: 5 seconds):
+Control how often the dashboard refreshes in seconds (default: 5). Supports decimal values for sub-second updates:
 
 ```bash
-ssh-dashboard -interval 1
+# Update every second
+ssh-dashboard -n 1
+
+# Update 10 times per second (100ms)
+ssh-dashboard -n 0.1
 
 # or with an env var
-export SSH_DASHBOARD_INTERVAL=1
+export SSH_DASHBOARD_INTERVAL=0.5
 ssh-dashboard
 ```
 
@@ -90,6 +95,7 @@ ssh-dashboard
 - `Enter` - Connect to selected host(s)
 - `n` - Switch to next host (when multiple hosts selected)
 - `t` - Toggle overview screen (shows all hosts at once)
+- `s` - Exit and SSH into current host
 - `c` - Add hosts (from dashboard, returns to host selection)
 
 ## SSH Configuration
