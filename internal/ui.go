@@ -242,7 +242,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.gatherAllSysInfo(), m.tick())
 		}
 
-		if m.screen == ScreenDashboard {
+		if m.screen == ScreenDashboard || m.screen == ScreenOverview {
 			return m, m.gatherSysInfoForHost(msg.hostName)
 		}
 
@@ -285,7 +285,11 @@ func (m Model) View() string {
 		return listView
 
 	case ScreenConnecting:
-		return m.renderLoading("Connecting and gathering information...")
+		msg := "Connecting and gathering information..."
+		if len(m.selectedHosts) > 1 {
+			msg = fmt.Sprintf("Connecting to %d hosts in parallel...", len(m.selectedHosts))
+		}
+		return m.renderLoading(msg)
 
 	case ScreenDashboard:
 		if len(m.selectedHosts) > 0 && m.currentHostIdx < len(m.selectedHosts) {
@@ -317,8 +321,16 @@ func (m Model) View() string {
 }
 
 func (m Model) connectToHosts() tea.Cmd {
-	if len(m.selectedHosts) > 0 {
-		return m.connectToHost(m.selectedHosts[0])
+	var cmds []tea.Cmd
+	for _, host := range m.selectedHosts {
+		h := host
+		cmds = append(cmds, func() tea.Msg {
+			client, err := NewSSHClient(h)
+			return ConnectedMsg{hostName: h.Name, client: client, err: err}
+		})
+	}
+	if len(cmds) > 0 {
+		return tea.Batch(cmds...)
 	}
 	return nil
 }
