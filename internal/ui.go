@@ -454,6 +454,13 @@ func (m Model) renderConnectingProgress() string {
 	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(subtitle))
 	b.WriteString("\n\n")
 
+	maxNameLen := 0
+	for _, host := range m.selectedHosts {
+		if len(host.Name) > maxNameLen {
+			maxNameLen = len(host.Name)
+		}
+	}
+
 	for _, host := range m.selectedHosts {
 		client := m.clients[host.Name]
 		sysInfo := m.sysInfos[host.Name]
@@ -474,7 +481,8 @@ func (m Model) renderConnectingProgress() string {
 			}
 		}
 
-		hostName := headerStyle.Render("● " + host.Name)
+		paddedName := host.Name + strings.Repeat(" ", maxNameLen-len(host.Name))
+		hostName := headerStyle.Render("● " + paddedName)
 		status := lipgloss.NewStyle().Foreground(statusColor).Render(fmt.Sprintf("%s %s", statusIcon, statusText))
 
 		b.WriteString(fmt.Sprintf("  %s  %s\n", hostName, status))
