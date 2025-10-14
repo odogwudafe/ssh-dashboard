@@ -138,6 +138,46 @@ func InitialModel(hosts []internal.SSHHost, updateInterval time.Duration) Model 
 	}
 }
 
+func InitialModelWithHost(host internal.SSHHost, updateInterval time.Duration) Model {
+	return InitialModelWithHosts([]internal.SSHHost{host}, []internal.SSHHost{host}, updateInterval)
+}
+
+func InitialModelWithHosts(allHosts []internal.SSHHost, selectedHosts []internal.SSHHost, updateInterval time.Duration) Model {
+	items := make([]list.Item, len(allHosts))
+	selectedMap := make(map[string]bool)
+	for _, h := range selectedHosts {
+		selectedMap[h.Name] = true
+	}
+
+	for i, h := range allHosts {
+		items[i] = hostItem{host: h, selected: selectedMap[h.Name]}
+	}
+
+	delegate := list.NewDefaultDelegate()
+	l := list.New(items, delegate, 0, 0)
+	l.Title = "Select SSH Hosts to Monitor (Space to select, Enter to confirm)"
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(true)
+
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
+	return Model{
+		screen:         ScreenConnecting,
+		hosts:          allHosts,
+		selectedHosts:  selectedHosts,
+		currentHostIdx: 0,
+		list:           l,
+		spinner:        s,
+		clients:        make(map[string]*internal.SSHClient),
+		sysInfos:       make(map[string]*internal.SystemInfo),
+		lastUpdates:    make(map[string]time.Time),
+		failedHosts:    make(map[string]error),
+		updateInterval: updateInterval,
+	}
+}
+
 func (m Model) GetSSHOnExit() string {
 	return m.sshOnExit
 }
@@ -160,5 +200,8 @@ func (m *Model) updateListSelection() {
 }
 
 func (m Model) Init() tea.Cmd {
+	if m.screen == ScreenConnecting && len(m.selectedHosts) > 0 {
+		return tea.Batch(m.spinner.Tick, m.connectToHosts())
+	}
 	return m.spinner.Tick
 }

@@ -26,11 +26,14 @@ func main() {
 
 	flag.Usage = func() {
 		// HACK: make it look like python's argparse
-		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS] [HOST...]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		fmt.Fprintf(os.Stderr, "  -n, --interval float  Update interval in seconds (default: 5, or SSH_DASHBOARD_INTERVAL env var)\n")
 		fmt.Fprintf(os.Stderr, "  -v, --version         Show version information\n")
 		fmt.Fprintf(os.Stderr, "  -h, --help            Show this help message\n")
+		fmt.Fprintf(os.Stderr, "\nArguments:\n")
+		fmt.Fprintf(os.Stderr, "  HOST...               One or more hostnames from SSH config to connect to directly\n")
+		fmt.Fprintf(os.Stderr, "                        Example: ssh-dashboard myHost myOtherHost\n")
 	}
 
 	var updateIntervalVal float64
@@ -39,6 +42,8 @@ func main() {
 	flag.BoolVar(&showVersion, "v", false, "")
 	flag.BoolVar(&showVersion, "version", false, "")
 	flag.Parse()
+
+	requestedHosts := flag.Args()
 
 	if showVersion {
 		fmt.Printf("ssh-dashboard version %s\n", internal.FullVersion())
@@ -75,7 +80,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	initialModel := ui.InitialModel(hosts, interval)
+	var initialModel ui.Model
+
+	if len(requestedHosts) > 0 {
+		var selectedHosts []internal.SSHHost
+		hostMap := make(map[string]internal.SSHHost)
+
+		for _, host := range hosts {
+			hostMap[host.Name] = host
+		}
+
+		for _, requestedName := range requestedHosts {
+			if host, found := hostMap[requestedName]; found {
+				selectedHosts = append(selectedHosts, host)
+			} else {
+				fmt.Fprintf(os.Stderr, "Host '%s' not found in SSH config\n", requestedName)
+				os.Exit(1)
+			}
+		}
+
+		initialModel = ui.InitialModelWithHosts(hosts, selectedHosts, interval)
+	} else {
+		initialModel = ui.InitialModel(hosts, interval)
+	}
+
 	p := tea.NewProgram(initialModel, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
