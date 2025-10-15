@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"github.com/alpindale/ssh-dashboard/internal"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -143,6 +144,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.tick()
 			}
 		}
+
+	case UpdateCheckMsg:
+		m.updateInfo = internal.UpdateInfo(msg)
 
 	case TickMsg:
 		// update every 10 seconds

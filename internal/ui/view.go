@@ -8,6 +8,24 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+func (m Model) renderUpdateNotification() string {
+	if !m.updateInfo.Available {
+		return ""
+	}
+
+	updateStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("226")).
+		Bold(true)
+
+	currentVer := m.updateInfo.CurrentVersion
+	if !strings.HasPrefix(currentVer, "v") {
+		currentVer = "v" + currentVer
+	}
+
+	return updateStyle.Render(fmt.Sprintf("\n\n⬆  Update available! %s → %s",
+		currentVer, m.updateInfo.LatestVersion))
+}
+
 func (m Model) View() string {
 	switch m.screen {
 	case ScreenHostList:
@@ -30,6 +48,7 @@ func (m Model) View() string {
 		}
 		versionFooter := fmt.Sprintf("\nv%s", internal.ShortVersion())
 		listView += lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(versionFooter)
+		listView += m.renderUpdateNotification()
 		return listView
 
 	case ScreenConnecting:
@@ -50,12 +69,14 @@ func (m Model) View() string {
 			if len(m.selectedHosts) > 1 {
 				hostIndicator = fmt.Sprintf(" [%d/%d]", m.currentHostIdx+1, len(m.selectedHosts))
 			}
-			return renderDashboard(currentHost.Name+hostIndicator, sysInfo, m.updateInterval, lastUpdate, m.width, m.height, len(m.selectedHosts) > 1)
+			dashboardView := renderDashboard(currentHost.Name+hostIndicator, sysInfo, m.updateInterval, lastUpdate, m.width, m.height, len(m.selectedHosts) > 1)
+			return dashboardView + m.renderUpdateNotification()
 		}
 		return m.renderConnectingProgress()
 
 	case ScreenOverview:
-		return m.renderOverview()
+		overviewView := m.renderOverview()
+		return overviewView + m.renderUpdateNotification()
 	}
 
 	return ""

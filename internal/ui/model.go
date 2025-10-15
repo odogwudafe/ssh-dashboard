@@ -36,9 +36,12 @@ type Model struct {
 	width          int
 	height         int
 	sshOnExit      string
+	updateInfo     internal.UpdateInfo
 }
 
 type TickMsg time.Time
+
+type UpdateCheckMsg internal.UpdateInfo
 
 type SystemInfoMsg struct {
 	hostName string
@@ -70,6 +73,11 @@ func (h hostItem) Description() string {
 		return fmt.Sprintf("  %s@%s:%s", h.host.User, censorHostname(h.host.Hostname), h.host.Port)
 	}
 	return ""
+}
+
+func checkForUpdates() tea.Msg {
+	updateInfo := internal.CheckForUpdates()
+	return UpdateCheckMsg(updateInfo)
 }
 
 func censorHostname(hostname string) string {
@@ -201,7 +209,7 @@ func (m *Model) updateListSelection() {
 
 func (m Model) Init() tea.Cmd {
 	if m.screen == ScreenConnecting && len(m.selectedHosts) > 0 {
-		return tea.Batch(m.spinner.Tick, m.connectToHosts())
+		return tea.Batch(m.spinner.Tick, m.connectToHosts(), checkForUpdates)
 	}
-	return m.spinner.Tick
+	return tea.Batch(m.spinner.Tick, checkForUpdates)
 }
